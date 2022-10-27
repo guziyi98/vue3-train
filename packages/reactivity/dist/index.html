@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script type="module">
+    import { reactive } from '/node_modules/@vue/reactivity/dist/reactivity.esm-browser.js'
+    const state = reactive({ name: 'gzy', age: 24})
+
+    console.log(state); // proxy
+  </script>
+</body>
+</html>

@@ -7,11 +7,19 @@
   <title>Document</title>
 </head>
 <body>
+  <div id="app"></div>
   <script type="module">
-    import { reactive } from '/node_modules/@vue/reactivity/dist/reactivity.esm-browser.js'
-    const state = reactive({ name: 'gzy', age: 24})
-
-    console.log(state); // proxy
+    // import { reactive, effect } from '/node_modules/@vue/reactivity/dist/reactivity.esm-browser.js'
+    import { reactive, effect } from './reactivity.esm.js'
+    // reactive创建一个响应式对象
+    // effect 副作用函数 默认会执行一次，数据变化后再次执行
+    const p1 = reactive({ name: 'gzy', age: 24}) // 第一次代理过的属性肯定增加了get和set
+    effect(() => {
+      app.innerHTML = p1.name + p1.age
+    })
+    setTimeout(() => {
+      app.innerHTML = p1.name + '2'
+    }, 3000);
   </script>
 </body>
 </html>

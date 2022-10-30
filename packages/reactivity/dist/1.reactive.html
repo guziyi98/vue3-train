@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    // import { reactive, effect } from '/node_modules/@vue/reactivity/dist/reactivity.esm-browser.js'
+    import { reactive, effect } from './reactivity.esm.js'
+    // reactive创建一个响应式对象
+    // effect 副作用函数 默认会执行一次，数据变化后再次执行
+    const state = reactive({ flag: false, name: 'gzy', age: 24, n: { n: 1} }) // 第一次代理过的属性肯定增加了get和set
+    const runner = effect(() => {
+      console.log('runner')
+      app.innerHTML = state.flag ? state.name : state.age
+    }, { // 类似于watch api的回调
+      scheduler () { // 组件更新都是基于scheduler实现的
+        setTimeout(() => {
+         runner()
+        }, 1000);
+        console.log('数据变化了', this)
+      }
+    })
+    console.log(state.n)
+    // 默认第一次 flag 会收集effect age 会收集当前的effect
+    // runner.effect.stop()
+    // 先做清理操作，默认第一次 flag 会收集effect name 收集了我们的effect,应该将age收集的依赖移除掉，否则更改age还是会触发更新
+    setTimeout(() => {
+      state.flag = !state.flag
+      // setTimeout(() => {
+      //   console.log('修改了age')
+      //   state.name = 31
+      // }, 1000);
+    }, 1000);
+  </script>
+</body>
+</html>

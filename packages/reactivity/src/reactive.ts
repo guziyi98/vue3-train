@@ -22,7 +22,10 @@ export function reactive (target) {
   if (existsProxy) {
     return existsProxy
   }
-
+  // 代理，我通过代理对象操作属性，就会去源对象上进行截取
   const proxy = new Proxy(target, mutTableHandlers)
+  // 缓存一下 代理过的对象，下次再进行代理的时候直接拿出来用即可
+  // target => proxy
+  reactiveMap.set(target, proxy)
   return proxy
 }

@@ -9,7 +9,7 @@
 <body>
   <div id="app"></div>
   <script type="module">
-    import { reactive, effect, computed, watch } from '/node_modules/vue/dist/vue.esm-browser.js'
+    import { reactive, effect, computed } from '/node_modules/@vue/reactivity/dist/reactivity.esm-browser.js'
     // import { reactive, effect, computed } from './reactivity.esm.js'
     const state = reactive({ flag: false, name: 'gzy', age: 24, n: { n: 1} })
     // 计算属性的目的是根据状态衍生属性，我们希望这属性有缓存功能，如果依赖的数据不变就不会重新计算
@@ -17,7 +17,6 @@
       console.log('默认不执行')
       return '**' + state.name
     })
-    console.log(watch)
     // 当我们取值时，才会调用这个computed
     aliasName.value
     state.name = 'gzy22'

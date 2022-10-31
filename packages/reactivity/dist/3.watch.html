@@ -14,10 +14,13 @@
     const state = reactive({ flag: false, name: 'gzy', age: 24, n: { n: 1} })
     // 数据变化后就调用回调方法
     // 常见的两种方式， 直接监控某个对象 or 某个属性
-    watch( () => state.name, (newValue, oldValue) => { // 对象是引用地址，无法区分新老
+    // watch就是effect, 状态会收集watch effect,属性变化后 会触发scheduler
+    watch(() => state.name, (newValue, oldValue) => { // 对象是引用地址，无法区分新老
       console.log(newValue, oldValue)
     })
     state.name = 'peter'
+
+    
   </script>
 </body>
 </html>

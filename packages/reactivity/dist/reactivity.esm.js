@@ -124,6 +124,9 @@ var ReactiveFlags = /* @__PURE__ */ ((ReactiveFlags2) => {
   ReactiveFlags2["IS_REACTIVE"] = "__v_isReactive";
   return ReactiveFlags2;
 })(ReactiveFlags || {});
+function isReactive(target) {
+  return !!(target && target["__v_isReactive" /* IS_REACTIVE */]);
+}
 var reactiveMap = /* @__PURE__ */ new WeakMap();
 function reactive(target) {
   if (!isObject(target)) {
@@ -190,6 +193,7 @@ export {
   activeEffect,
   computed,
   effect,
+  isReactive,
   reactive,
   track,
   trackEffects,

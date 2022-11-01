@@ -210,10 +210,16 @@ function doWatch(source, cb, { immediate } = {}) {
     getter = source;
   }
   let oldValue;
+  let cleanup;
+  const onCleanup = (userCb) => {
+    cleanup = userCb;
+  };
   const job = () => {
     if (cb) {
       const newValue = effect2.run();
-      cb(newValue, oldValue);
+      if (cleanup)
+        cleanup();
+      cb(newValue, oldValue, onCleanup);
       oldValue = newValue;
     } else {
       effect2.run();

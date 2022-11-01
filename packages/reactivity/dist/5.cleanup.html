@@ -30,13 +30,34 @@
     }
     let arr = []
     // vue2 中如何解决这个问题
-    watch(() => state.name, async function (newValue) {
+    // watch(() => state.name, async function (newValue) {
+    //   let flag = true
+    //   while (arr.length) {
+    //     const cb = arr.shift()
+    //     cb()
+    //   }
+    //   arr.push(() => { // 这个函数就是一个闭包
+    //     flag = false
+    //   })
+    //   const res = await getData(newValue)
+    //   if (flag) {
+    //     app.innerHTML = res
+    //   }
+    // })
+
+    // state.name = 1
+    // state.name = 2
+    
+    // 用户输入1 返回1 再输入2 返回2
+
+    // vue3解法
+    watch(() => state.name, async function (newValue, oldValue, onCleanup) {
       let flag = true
       while (arr.length) {
         const cb = arr.shift()
         cb()
       }
-      arr.push(() => { // 这个函数就是一个闭包
+      onCleanup(() => { // 这个函数就是一个闭包
         flag = false
       })
       const res = await getData(newValue)
@@ -47,16 +68,8 @@
 
     state.name = 1
     state.name = 2
-    // let arr = [];
-    // const fn = () => { console.log(1) };
-    // const fn2 = () => { console.log(2) };
-    // arr.push(fn);
-    // arr.push(fn2);
-    // console.log(arr);
-    // while(arr.length) {
-    //   const shift = arr.shift()
-    //   console.log(shift)
-    // }
+
+    // watch的实现 watchEffect的实现 onCleanup的实现
   </script>
 </body>
 </html>

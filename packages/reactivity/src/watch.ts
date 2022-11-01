@@ -27,11 +27,16 @@ export function doWatch (source, cb, { immediate } = {} as any) {
     getter = source
   }
   let oldValue
+  let cleanup
+  const onCleanup = userCb => {
+    cleanup = userCb
+  }
   const job = () => {
     if (cb) { // watch api
       // 内部要调用cb， 也就是watch的回调
       const newValue = effect.run()
-      cb(newValue, oldValue)
+      if (cleanup) cleanup()
+      cb(newValue, oldValue, onCleanup)
       oldValue = newValue
     } else {
       effect.run() // watchEffect api

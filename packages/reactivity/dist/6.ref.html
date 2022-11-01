@@ -9,15 +9,24 @@
 <body>
   <div id="app"></div>
   <script type="module">
-    // import { reactive, effect, computed, watch, watchEffect, ref } from '/node_modules/vue/dist/vue.esm-browser.js'
-    import { reactive, effect, computed, watch, watchEffect, ref } from './reactivity.esm.js'
+    import { reactive, effect, computed, watch, watchEffect, ref, toRef, toRefs, proxyRefs } from '/node_modules/vue/dist/vue.esm-browser.js'
+    // import { reactive, effect, computed, watch, watchEffect, ref, toRef, toRefs } from './reactivity.esm.js'
     const person = reactive({ flag: false, name: 'gzy', age: 24, n: { n: 1} })
-    const flag = ref(true)
-    console.log(flag)
+    let flag = ref(true)
+    // name.value === person.name
+    // age.value === person.age
 
+    // 做了个代理
+    // const name = toRef(person, 'name')
+    // const age = toRef(person, 'age')
+    // console.log(name)
+
+    const personRefs = toRefs(person)
     watchEffect(() => {
+      // 用户在模板中使用的时候不用 .value 的原因就是 内部会将数据用 proxyRefs 做处理
+      const { name, age } = proxyRefs(personRefs)
+      app.innerHTML = flag.value ? name : age
     })
-    app.innerHTML = flag.value ? person.name : person.age
 
 
     setTimeout(() => {

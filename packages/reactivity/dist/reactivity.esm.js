@@ -268,6 +268,29 @@ var RefImpl = class {
     }
   }
 };
+var ObjectRefImpl = class {
+  constructor(_object, _key) {
+    this._object = _object;
+    this._key = _key;
+    this.__v_isRef = true;
+  }
+  get value() {
+    return this._object[this._key];
+  }
+  set value(newValue) {
+    this._object[this._key] = newValue;
+  }
+};
+function toRef(target, key) {
+  return new ObjectRefImpl(target, key);
+}
+function toRefs(target) {
+  let res = {};
+  for (const key in target) {
+    res[key] = toRef(target, key);
+  }
+  return res;
+}
 export {
   ReactiveEffect,
   ReactiveFlags,
@@ -278,6 +301,8 @@ export {
   isReactive,
   reactive,
   ref,
+  toRef,
+  toRefs,
   track,
   trackEffects,
   trigger,

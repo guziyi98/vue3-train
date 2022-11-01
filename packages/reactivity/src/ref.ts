@@ -35,3 +35,30 @@ class RefImpl {
     }
   }
 }
+
+
+class ObjectRefImpl {
+  __v_isRef = true
+  constructor (public _object, public _key) {
+
+  }
+  get value () {
+    return this._object[this._key]
+  }
+
+  set value (newValue) {
+    this._object[this._key] = newValue
+  }
+}
+
+export function toRef (target, key) {
+  return new ObjectRefImpl(target, key)
+}
+
+export function toRefs (target) {
+  let res = {}
+  for (const key in target) {
+    res[key] = toRef(target, key)
+  }
+  return res
+}

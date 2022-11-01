@@ -62,3 +62,23 @@ export function toRefs (target) {
   }
   return res
 }
+
+// 需要加个 .value
+export function proxyRefs (objectWithRefs) {
+  return new Proxy(objectWithRefs, {
+    get (target, key, receiver) {
+      const v = Reflect.get(target, key, receiver)
+      return v.__v_isRef ? v.value : v
+    },
+    set (target, key, value, receiver) {
+      const oldValue = target[key]
+      if (oldValue.__v_isRef) {
+        oldValue.value = value
+        return true
+      }
+      return Reflect.set(target, key, value, receiver)
+    }
+  })
+}
+
+// computed ref toRef toRefs watch watchEffect proxyRefs

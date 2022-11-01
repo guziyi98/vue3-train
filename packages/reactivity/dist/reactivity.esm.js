@@ -291,6 +291,22 @@ function toRefs(target) {
   }
   return res;
 }
+function proxyRefs(objectWithRefs) {
+  return new Proxy(objectWithRefs, {
+    get(target, key, receiver) {
+      const v = Reflect.get(target, key, receiver);
+      return v.__v_isRef ? v.value : v;
+    },
+    set(target, key, value, receiver) {
+      const oldValue = target[key];
+      if (oldValue.__v_isRef) {
+        oldValue.value = value;
+        return true;
+      }
+      return Reflect.set(target, key, value, receiver);
+    }
+  });
+}
 export {
   ReactiveEffect,
   ReactiveFlags,
@@ -299,6 +315,7 @@ export {
   doWatch,
   effect,
   isReactive,
+  proxyRefs,
   reactive,
   ref,
   toRef,

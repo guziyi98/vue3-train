@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    // import { reactive, effect, computed, watch, watchEffect, ref, toRef, toRefs, proxyRefs, effectScope } from '/node_modules/vue/dist/vue.esm-browser.js'
+    import { reactive, effect, computed, watch, watchEffect, ref, toRef, toRefs, effectScope } from './reactivity.esm.js'
+    const state = reactive({ age: 24 })
+    // 状态管理工具 pinia 我在组件中用了一堆响应式数据 computed
+
+    const scope = effectScope()
+    
+    scope.run(() => {
+      const state = reactive({ age: 24 })
+      const runner = effect(() => {
+        console.log(state.age)
+      })
+      setTimeout(() => {
+        state.age--
+      }, 2000);
+      const scope = effectScope()
+      scope.run(() => {
+        const state = reactive({ age: 24 })
+        const runner = effect(() => {
+          console.log(state.age)
+        })
+        setTimeout(() => {
+          state.age++
+        }, 2000);
+      })
+    })
+    scope.stop()
+
+    
+  </script>
+</body>
+</html>

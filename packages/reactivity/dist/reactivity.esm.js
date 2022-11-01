@@ -76,16 +76,18 @@ function trigger(target, key, value, oldValue) {
   }
 }
 function triggerEffects(dep) {
-  const effects = [...dep];
-  effects.forEach((effect2) => {
-    if (activeEffect !== effect2) {
-      if (effect2.scheduler) {
-        effect2.scheduler();
-      } else {
-        effect2.run();
+  if (dep) {
+    const effects = [...dep];
+    effects.forEach((effect2) => {
+      if (activeEffect !== effect2) {
+        if (effect2.scheduler) {
+          effect2.scheduler();
+        } else {
+          effect2.run();
+        }
       }
-    }
-  });
+    });
+  }
 }
 
 // packages/shared/src/index.ts
@@ -237,6 +239,35 @@ function watch(source, cb, options) {
 function watchEffect(source, options) {
   doWatch(source, null, options);
 }
+
+// packages/reactivity/src/ref.ts
+function ref(value) {
+  return new RefImpl(value);
+}
+function toReactive(value) {
+  return isObject(value) ? reactive(value) : value;
+}
+var RefImpl = class {
+  constructor(rawValue) {
+    this.rawValue = rawValue;
+    this.dep = void 0;
+    this.__v_isRef = true;
+    this._value = toReactive(rawValue);
+  }
+  get value() {
+    if (activeEffect) {
+      trackEffects(this.dep || (this.dep = /* @__PURE__ */ new Set()));
+    }
+    return this._value;
+  }
+  set value(newValue) {
+    if (newValue !== this.rawValue) {
+      this._value = toReactive(newValue);
+      this.rawValue = newValue;
+      triggerEffects(this.dep);
+    }
+  }
+};
 export {
   ReactiveEffect,
   ReactiveFlags,
@@ -246,6 +277,7 @@ export {
   effect,
   isReactive,
   reactive,
+  ref,
   track,
   trackEffects,
   trigger,

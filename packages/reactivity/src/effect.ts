@@ -95,15 +95,17 @@ export function trigger (target, key, value, oldValue) {
 }
 
 export function triggerEffects (dep) {
-  const effects = [...dep]
-  effects.forEach(effect => {
-    // 当我重新执行此effect，会将当前的effect放到全局上,应该放到 activeEffect 上
-    if (activeEffect !== effect) {
-      if (effect.scheduler) {
-        effect.scheduler()
-      } else {
-        effect.run()
+  if (dep) {
+    const effects = [...dep]
+    effects.forEach(effect => {
+      // 当我重新执行此effect，会将当前的effect放到全局上,应该放到 activeEffect 上
+      if (activeEffect !== effect) {
+        if (effect.scheduler) {
+          effect.scheduler()
+        } else {
+          effect.run()
+        }
       }
-    }
-  })
+    })
+  }
 }

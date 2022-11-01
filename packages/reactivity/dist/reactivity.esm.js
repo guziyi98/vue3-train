@@ -187,17 +187,64 @@ function computed(getterOrOptions) {
   }
   return new ComputedRefImpl(getter, setter);
 }
+
+// packages/reactivity/src/watch.ts
+function traverse(source, s = /* @__PURE__ */ new Set()) {
+  if (!isObject(source)) {
+    return source;
+  }
+  if (s.has(source)) {
+    return source;
+  }
+  s.add(source);
+  for (const key in source) {
+    traverse(source[key], s);
+  }
+  return source;
+}
+function doWatch(source, cb, { immediate } = {}) {
+  let getter;
+  if (isReactive(source)) {
+    getter = () => traverse(source);
+  } else if (isFunction(source)) {
+    getter = source;
+  }
+  let oldValue;
+  const job = () => {
+    if (cb) {
+      const newValue = effect2.run();
+      cb(newValue, oldValue);
+      oldValue = newValue;
+    } else {
+      effect2.run();
+    }
+  };
+  const effect2 = new ReactiveEffect(getter, job);
+  if (immediate) {
+    return job();
+  }
+  oldValue = effect2.run();
+}
+function watch(source, cb, options) {
+  doWatch(source, cb, options);
+}
+function watchEffect(source, options) {
+  doWatch(source, null, options);
+}
 export {
   ReactiveEffect,
   ReactiveFlags,
   activeEffect,
   computed,
+  doWatch,
   effect,
   isReactive,
   reactive,
   track,
   trackEffects,
   trigger,
-  triggerEffects
+  triggerEffects,
+  watch,
+  watchEffect
 };
 //# sourceMappingURL=reactivity.esm.js.map

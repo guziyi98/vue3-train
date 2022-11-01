@@ -9,15 +9,15 @@
 <body>
   <div id="app"></div>
   <script type="module">
-    import { reactive, effect, computed, watch } from '/node_modules/vue/dist/vue.esm-browser.js'
-    // import { reactive, effect, computed } from './reactivity.esm.js'
+    // import { reactive, effect, computed, watch } from '/node_modules/vue/dist/vue.esm-browser.js'
+    import { reactive, effect, computed, watch } from './reactivity.esm.js'
     const state = reactive({ flag: false, name: 'gzy', age: 24, n: { n: 1} })
     // 数据变化后就调用回调方法
     // 常见的两种方式， 直接监控某个对象 or 某个属性
     // watch就是effect, 状态会收集watch effect,属性变化后 会触发scheduler
     watch(() => state.name, (newValue, oldValue) => { // 对象是引用地址，无法区分新老
       console.log(newValue, oldValue)
-    })
+    }, { immediate: true })
     state.name = 'peter'
 
     

@@ -36,7 +36,8 @@ jobs:
         uses: actions/upload-pages-artifact@v1
         with:
           # Upload entire repository
-          path: '.'
+          # 默认根目录下的 index.html
+          path: './packages/reactivity/dist/1.reactive.html'  
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1

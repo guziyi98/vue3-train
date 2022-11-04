@@ -10,7 +10,12 @@
   <div id="app"></div>
   <script type="module">
     // import { createRenderer, h } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
-    import './runtime-dom.esm.js'
+
+    import { h, createRenderer, render } from './runtime-dom.esm.js'
+    render(h('div', { style: { color: 'red'}}, 'hello world'), app)
+    // console.log(h('div', { color: 'red'}, h('span', 'hello')))
+
+
     // const { render } = createRenderer({
     //   createElement(tagName) {
     //     return document.createElement(tagName)

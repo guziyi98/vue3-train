@@ -37,7 +37,7 @@ jobs:
         with:
           # Upload entire repository
           # 默认根目录下的 index.html
-          path: './packages/reactivity/dist'
+          path: './packages/runtime-dom/dist'
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v1

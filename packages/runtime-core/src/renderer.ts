@@ -181,6 +181,7 @@ export function createRenderer(options) {
         // 直接做插入操作即可
         // 倒序插入
         hostInsert(nextChild.el, el, anchor) // insert是移动节点
+        // 这个插入操作比较暴力，整个做了一次移动，但是我们需要优化不动的那一项
       }
     }
   }

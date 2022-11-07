@@ -16,7 +16,7 @@
       const style = { color: 'red', background: 'blue' }
       render(
         h('div', [
-          h('li', { key: 'a' }, 'a'),
+          h('li', { key: 'a', style: { background: 'red' } }, 'a'),
           h('li', { key: 'b' }, 'b'),
           h('li', { key: 'c' }, 'c'),
           h('li', { key: 'd' }, 'd'),

@@ -1,14 +1,14 @@
 import { isString, ShapeFlags } from '@vue/shared';
 
 
-export function isVNode (vnode) {
+export function isVNode(vnode) {
   return vnode.__v_isVnode === true
 }
 
-export function isSaveVNode (prevNode, nextNode) {
-  return typeof prevNode.el === nextNode.el && prevNode.key === nextNode.key
+export function isSameVNode(n1, n2) {
+  return n1.type === n2.type && n1.key === n2.key
 }
-export function createVNode (type, props = null, children = null) {
+export function createVNode(type, props = null, children = null) {
   // 组件
   // 元素
   // 文本

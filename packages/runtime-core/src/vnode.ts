@@ -1,4 +1,4 @@
-import { isString, ShapeFlags } from '@vue/shared';
+import { isString, ShapeFlags, isObject } from '@vue/shared';
 
 export const Text = Symbol('text')
 export const Fragment = Symbol('fragment')
@@ -18,7 +18,10 @@ export function createVNode(type, props = null, children = null) {
   // 用表示来区分 对应的虚拟节点类型  这个表示采用的位运算的方式 可以方便组合
   // 
 
-  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT : 0
+  const shapeFlag = isString(type) ? ShapeFlags.ELEMENT
+    : isObject(type)
+      ? ShapeFlags.COMPONENT
+      : 0
 
   const vnode = {
     __v_isVnode: true, // 添加标识是不是vnode

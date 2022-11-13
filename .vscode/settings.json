@@ -3,5 +3,6 @@
     "activityBar.background": "#12332E",
     "titleBar.activeBackground": "#194741",
     "titleBar.activeForeground": "#F4FBFA"
-  }
+  },
+  "editor.wordSeparators": "`~!@#$%^&*()=+[{]}\\|;:'\",.<>/?"
 }

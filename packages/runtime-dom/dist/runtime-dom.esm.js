@@ -124,7 +124,7 @@ function isSameVNode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
 function createVNode(type, props = null, children = null) {
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : 0;
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -167,6 +167,162 @@ function h(type, propsOrChildren, children) {
     return createVNode(type, propsOrChildren, children);
   }
 }
+
+// packages/reactivity/src/effectScope.ts
+var activeEffectScope;
+function recordEffectScope(effect) {
+  if (activeEffectScope && activeEffectScope.active) {
+    activeEffectScope.effects.push(effect);
+  }
+}
+
+// packages/reactivity/src/effect.ts
+var activeEffect;
+function cleanupEffect(effect) {
+  let { deps } = effect;
+  for (let i = 0; i < deps.length; i++) {
+    deps[i].delete(effect);
+  }
+  deps.length = 0;
+}
+var ReactiveEffect = class {
+  constructor(fn, scheduler) {
+    this.fn = fn;
+    this.scheduler = scheduler;
+    this.active = true;
+    this.deps = [];
+    this.parent = void 0;
+    recordEffectScope(this);
+  }
+  run() {
+    if (!this.active) {
+      return this.fn();
+    }
+    try {
+      this.parent = activeEffect;
+      activeEffect = this;
+      cleanupEffect(this);
+      return this.fn();
+    } finally {
+      activeEffect = this.parent;
+      this.parent = void 0;
+    }
+  }
+  stop() {
+    if (this.active) {
+      cleanupEffect(this);
+      this.active = false;
+    }
+  }
+};
+var targetMap = /* @__PURE__ */ new WeakMap();
+function track(target, key) {
+  if (!activeEffect) {
+    return;
+  }
+  let depsMap = targetMap.get(target);
+  if (!depsMap) {
+    targetMap.set(target, depsMap = /* @__PURE__ */ new Map());
+  }
+  let dep = depsMap.get(key);
+  if (!dep) {
+    depsMap.set(key, dep = /* @__PURE__ */ new Set());
+  }
+  trackEffects(dep);
+}
+function trackEffects(dep) {
+  let shouldTrack = !dep.has(activeEffect);
+  if (shouldTrack) {
+    dep.add(activeEffect);
+    activeEffect.deps.push(dep);
+  }
+}
+function trigger(target, key, value, oldValue) {
+  const depsMap = targetMap.get(target);
+  if (!depsMap) {
+    return;
+  }
+  const dep = depsMap.get(key);
+  if (dep) {
+    triggerEffects(dep);
+  }
+}
+function triggerEffects(dep) {
+  if (dep) {
+    const effects = [...dep];
+    effects.forEach((effect) => {
+      if (activeEffect !== effect) {
+        if (effect.scheduler) {
+          effect.scheduler();
+        } else {
+          effect.run();
+        }
+      }
+    });
+  }
+}
+
+// packages/reactivity/src/baseHandlers.ts
+var mutTableHandlers = {
+  get(target, key, receiver) {
+    if ("__v_isReactive" /* IS_REACTIVE */ === key) {
+      return target;
+    }
+    track(target, key);
+    const res = Reflect.get(target, key, receiver);
+    if (isObject(res)) {
+      return reactive(res);
+    }
+    return res;
+  },
+  set(target, key, value, receiver) {
+    let oldValue = target[key];
+    const res = Reflect.set(target, key, value, receiver);
+    if (oldValue !== value) {
+      trigger(target, key, value, oldValue);
+    }
+    return res;
+  }
+};
+
+// packages/reactivity/src/reactive.ts
+var reactiveMap = /* @__PURE__ */ new WeakMap();
+function reactive(target) {
+  if (!isObject(target)) {
+    return target;
+  }
+  if (target["__v_isReactive" /* IS_REACTIVE */]) {
+    return target;
+  }
+  const existsProxy = reactiveMap.get(target);
+  if (existsProxy) {
+    return existsProxy;
+  }
+  const proxy = new Proxy(target, mutTableHandlers);
+  reactiveMap.set(target, proxy);
+  return proxy;
+}
+
+// packages/runtime-core/src/scheduler.ts
+var queue = [];
+var isFlushing = false;
+var resolvePromise = Promise.resolve();
+var queueJob = (job) => {
+  if (!queue.includes(job)) {
+    queue.push(job);
+  }
+  if (!isFlushing) {
+    isFlushing = true;
+    resolvePromise.then(() => {
+      isFlushing = false;
+      let copy = queue.slice(0);
+      queue.length = 0;
+      for (let i = 0; i < copy.length; i++) {
+        copy[i]();
+      }
+    });
+  }
+};
 
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
@@ -348,6 +504,40 @@ function createRenderer(options) {
       patchElement(prevNode, nextNode);
     }
   };
+  const mountComponent = (vnode, container, anchor) => {
+    const { data = () => ({}), render: render3 } = vnode.type;
+    const state = reactive(data());
+    const instance = {
+      state,
+      isMounted: false,
+      subTree: null,
+      vnode,
+      update: null
+    };
+    const componentFn = () => {
+      if (!instance.isMounted) {
+        const subTree = render3.call(state);
+        patch(null, subTree, container, anchor);
+        instance.isMounted = true;
+        instance.subTree = subTree;
+      } else {
+        const subTree = render3.call(state);
+        patch(instance.subTree, subTree, container, anchor);
+        instance.subTree = subTree;
+      }
+    };
+    const effect = new ReactiveEffect(componentFn, () => {
+      queueJob(instance.update);
+    });
+    const update = instance.update = effect.run.bind(effect);
+    update();
+  };
+  const processComponent = (n1, n2, container, anchor) => {
+    if (n1 == null) {
+      mountComponent(n2, container, anchor);
+    } else {
+    }
+  };
   const processText = (n1, n2, el) => {
     if (n1 == null) {
       hostInsert(n2.el = hostCreateText(n2.children), el);
@@ -384,6 +574,8 @@ function createRenderer(options) {
       default:
         if (shapeFlag & 1 /* ELEMENT */) {
           processElement(prevNode, nextNode, container, anchor);
+        } else if (shapeFlag & 6 /* COMPONENT */) {
+          processComponent(prevNode, nextNode, container, anchor);
         }
     }
   };

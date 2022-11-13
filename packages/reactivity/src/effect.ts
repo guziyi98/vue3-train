@@ -3,7 +3,7 @@ import { recordEffectScope } from './effectScope'
 export let activeEffect
 
 // 每次执行依赖收集前，先做清除操作
-function cleanupEffect (effect) {
+function cleanupEffect(effect) {
   // 每次执行effect之前 我们应该清理掉effect中依赖的所有属性
   let { deps } = effect
   for (let i = 0; i < deps.length; i++) {
@@ -15,10 +15,10 @@ export class ReactiveEffect {
   public active = true
   public deps = []
   public parent = undefined
-  constructor(public fn, private scheduler) {
+  constructor(public fn, private scheduler?) {
     recordEffectScope(this)
   }
-  run () {
+  run() {
     if (!this.active) {
       return this.fn() // 直接执行此函数即可
     }
@@ -33,7 +33,7 @@ export class ReactiveEffect {
       this.parent = undefined
     }
   }
-  stop () {
+  stop() {
     if (this.active) {
       cleanupEffect(this) // 先将effect的依赖全部删除掉
       this.active = false // 再将其变成失活态
@@ -41,7 +41,7 @@ export class ReactiveEffect {
   }
 }
 // 依赖收集 就是将当前的effect变成全局的 稍后取值的时候可以拿到这个全局的effect
-export function effect (fn, options: any = {}) {
+export function effect(fn, options: any = {}) {
   const _effect = new ReactiveEffect(fn, options.scheduler)
   _effect.run() // 默认让响应式的effect执行一次
   const runner = _effect.run.bind(_effect) // 保证_effect执行的时候this是当前的effect
@@ -50,7 +50,7 @@ export function effect (fn, options: any = {}) {
 }
 
 const targetMap = new WeakMap()
-export function track (target, key) {
+export function track(target, key) {
   if (!activeEffect) {
     // 取值操作没有发生在effect中
     return
@@ -74,7 +74,7 @@ export function track (target, key) {
   // }
 }
 
-export function trackEffects (dep) {
+export function trackEffects(dep) {
   let shouldTrack = !dep.has(activeEffect)
   if (shouldTrack) {
     dep.add(activeEffect)
@@ -84,7 +84,7 @@ export function trackEffects (dep) {
   }
 }
 
-export function trigger (target, key, value, oldValue) {
+export function trigger(target, key, value, oldValue) {
   // weakMap { obj: map{ key: set(effect) }}
   const depsMap = targetMap.get(target)
   if (!depsMap) {
@@ -96,7 +96,7 @@ export function trigger (target, key, value, oldValue) {
   }
 }
 
-export function triggerEffects (dep) {
+export function triggerEffects(dep) {
   if (dep) {
     const effects = [...dep]
     effects.forEach(effect => {

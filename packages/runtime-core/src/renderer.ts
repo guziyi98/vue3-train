@@ -1,5 +1,8 @@
+import { ReactiveEffect } from './../../reactivity/src/effect';
+import { reactive } from '@vue/reactivity';
 import { ShapeFlags } from '@vue/shared';
 import { isSameVNode, Text, Fragment } from './vnode';
+import { queueJob } from './scheduler';
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -248,6 +251,48 @@ export function createRenderer(options) {
     }
   }
 
+  const mountComponent = (vnode, container, anchor) => {
+    // 如何挂载组件？ vnode指的是组件的虚拟节点 subTree render函数返回的虚拟节点
+    const { data = () => ({}), render } = vnode.type
+    const state = reactive(data()) // 将数据变成响应式的
+    const instance = {
+      // 组件的实例
+      state,
+      isMounted: false,
+      subTree: null,
+      vnode,
+      update: null // 组件的更新方法 effect.run()
+    }
+    const componentFn = () => {
+      if (!instance.isMounted) {
+        // 稍后组件更新 也会执行此方法
+        const subTree = render.call(state) // 这里会做一来收集，数据变化会再次调用effect
+        patch(null, subTree, container, anchor)
+        instance.isMounted = true
+        instance.subTree = subTree
+      } else {
+        const subTree = render.call(state)
+        patch(instance.subTree, subTree, container, anchor)
+        instance.subTree = subTree
+      }
+    }
+    const effect = new ReactiveEffect(componentFn, () => {
+      // 需要异步更新
+      queueJob(instance.update)
+    })
+    const update = (instance.update = effect.run.bind(effect))
+    update()
+  }
+
+  const processComponent = (n1, n2, container, anchor) => {
+    if (n1 == null) {
+      // 组件初次渲染
+      mountComponent(n2, container, anchor)
+    } else {
+      // 组件更新 指的是组件的属性 更新，插槽更新
+    }
+  }
+
   const processText = (n1, n2, el) => {
     if (n1 == null) {
       hostInsert((n2.el = hostCreateText(n2.children)), el)
@@ -287,6 +332,8 @@ export function createRenderer(options) {
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(prevNode, nextNode, container, anchor)
+        } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          processComponent(prevNode, nextNode, container, anchor)
         }
     }
   }

@@ -10,22 +10,44 @@
   <body>
     <div id="app"></div>
     <script type="module">
-      // import {
-      //   createRenderer,
-      //   h,
-      //   render,
-      //   Text,
-      //   Fragment,
-      // } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
       import {
-        h,
         createRenderer,
+        h,
         render,
         Text,
         Fragment,
-      } from './runtime-dom.esm.js'
-      const style = { color: 'red', background: 'blue' }
-      const VueComponent = {}
+        getCurrentInstance,
+      } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
+      // import {
+      //   h,
+      //   createRenderer,
+      //   render,
+      //   Text,
+      //   Fragment,
+      // } from './runtime-dom.esm.js'
+      let a = 100
+      const VueComponent = {
+        data() {
+          return { age: 24, name: 'gzy' }
+        },
+        setup() {
+          let instance = getCurrentInstance()
+          setTimeout(() => {
+            a = 200
+            console.log(instance)
+          }, 1000)
+        },
+        render() {
+          setTimeout(() => {
+            this.age++
+            this.age++
+          }, 1000)
+          return h('div', [h(Text, this.age), h(Text, this.name)])
+        },
+      }
+      // type === 'object' 就是组件了
+      render(h(VueComponent), app)
+      // 我们每创建一个组件 都要有一个独立的数据源，如果是对象会导致组件共享数据
     </script>
   </body>
 </html>

@@ -1,8 +1,10 @@
+import { hasOwn } from './../../shared/src/index';
 import { ReactiveEffect } from './../../reactivity/src/effect';
 import { reactive } from '@vue/reactivity';
 import { ShapeFlags } from '@vue/shared';
 import { isSameVNode, Text, Fragment } from './vnode';
 import { queueJob } from './scheduler';
+import { initProps } from './componentProps';
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -253,25 +255,60 @@ export function createRenderer(options) {
 
   const mountComponent = (vnode, container, anchor) => {
     // 如何挂载组件？ vnode指的是组件的虚拟节点 subTree render函数返回的虚拟节点
-    const { data = () => ({}), render } = vnode.type
+    const { data = () => ({}), render, props: propsOptions = {} } = vnode.type
     const state = reactive(data()) // 将数据变成响应式的
-    const instance = {
+    let instance = {
       // 组件的实例
-      state,
+      data: state,
       isMounted: false,
       subTree: null,
       vnode,
-      update: null // 组件的更新方法 effect.run()
+      update: null, // 组件的更新方法 effect.run()
+      props: {},
+      attrs: {},
+      propsOptions,
+      proxy: null
     }
+    vnode.component = instance // 让虚拟节点知道对应的组件是谁
+    initProps(instance, vnode.props)
+    const publicProperties = {
+      $attrs: (i) => i.attrs,
+      $props: (i) => i.props
+    }
+    // debugger;
+    instance.proxy = new Proxy(instance, {
+      get(target, key) {
+        let { data, props } = target
+        if (hasOwn(key, data)) {
+          return data[key]
+        } else if (hasOwn(key, props)) {
+          return props[key]
+        }
+        let getter = publicProperties[key]
+        if (getter) {
+          return getter(target)
+        }
+      },
+      set(target, key, value) {
+        let { data, props } = target
+        if (hasOwn(key, data)) {
+          data[key] = value
+        } else if (hasOwn(key, props)) {
+          console.log('warn...');
+          return false
+        }
+        return true
+      }
+    })
     const componentFn = () => {
       if (!instance.isMounted) {
         // 稍后组件更新 也会执行此方法
-        const subTree = render.call(state) // 这里会做一来收集，数据变化会再次调用effect
+        const subTree = render.call(instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
         patch(null, subTree, container, anchor)
         instance.isMounted = true
         instance.subTree = subTree
       } else {
-        const subTree = render.call(state)
+        const subTree = render.call(instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
       }
@@ -290,6 +327,7 @@ export function createRenderer(options) {
       mountComponent(n2, container, anchor)
     } else {
       // 组件更新 指的是组件的属性 更新，插槽更新
+      // todo...
     }
   }
 

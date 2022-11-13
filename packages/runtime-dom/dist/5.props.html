@@ -25,26 +25,35 @@
         Text,
         Fragment,
       } from './runtime-dom.esm.js'
-      const VueComponent = {
+      const ChildComponent = {
         props: {
-          a: Number,
-        },
-        data() {
-          return { age: 24, name: 'gzy' }
+          a: String,
         },
         render() {
-          console.log(this.$props)
-          console.log(this.$attrs)
-          console.log(this)
-          return h('div', [
-            h(Text, this.age),
-            h(Text, this.name),
-            h(Text, this.a),
+          return h(Text, this.a)
+        },
+      }
+      const VueComponent = {
+        data() {
+          return { isShow: false }
+        },
+        render() {
+          return h(Fragment, [
+            h(
+              'button',
+              {
+                onclick: () => {
+                  this.isShow = !this.isShow
+                },
+              },
+              '点我修改状态'
+            ),
+            h(ChildComponent, { a: this.isShow ? '显示' : '隐藏' }),
           ])
         },
       }
       // type === 'object' 就是组件了
-      render(h(VueComponent, { a: 1, b: 2, c: 3 }), app)
+      render(h(VueComponent), app)
       // 我们每创建一个组件 都要有一个独立的数据源，如果是对象会导致组件共享数据
     </script>
   </body>

@@ -113,6 +113,8 @@ function isObject(value) {
 function isString(value) {
   return typeof value === "string";
 }
+var ownProperty = Object.prototype.hasOwnProperty;
+var hasOwn = (key, value) => ownProperty.call(value, key);
 
 // packages/runtime-core/src/vnode.ts
 var Text = Symbol("text");
@@ -324,6 +326,25 @@ var queueJob = (job) => {
   }
 };
 
+// packages/runtime-core/src/componentProps.ts
+function initProps(instance, rawProps) {
+  const props = {};
+  const attrs = {};
+  const options = instance.propsOptions;
+  if (rawProps) {
+    for (let key in rawProps) {
+      const value = rawProps[key];
+      if (key in options) {
+        props[key] = value;
+      } else {
+        attrs[key] = value;
+      }
+    }
+  }
+  instance.props = reactive(props);
+  instance.attrs = attrs;
+}
+
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
   const {
@@ -505,23 +526,57 @@ function createRenderer(options) {
     }
   };
   const mountComponent = (vnode, container, anchor) => {
-    const { data = () => ({}), render: render3 } = vnode.type;
+    const { data = () => ({}), render: render3, props: propsOptions = {} } = vnode.type;
     const state = reactive(data());
-    const instance = {
-      state,
+    let instance = {
+      data: state,
       isMounted: false,
       subTree: null,
       vnode,
-      update: null
+      update: null,
+      props: {},
+      attrs: {},
+      propsOptions,
+      proxy: null
     };
+    vnode.component = instance;
+    initProps(instance, vnode.props);
+    const publicProperties = {
+      $attrs: (i) => i.attrs,
+      $props: (i) => i.props
+    };
+    instance.proxy = new Proxy(instance, {
+      get(target, key) {
+        let { data: data2, props } = target;
+        if (hasOwn(key, data2)) {
+          return data2[key];
+        } else if (hasOwn(key, props)) {
+          return props[key];
+        }
+        let getter = publicProperties[key];
+        if (getter) {
+          return getter(target);
+        }
+      },
+      set(target, key, value) {
+        let { data: data2, props } = target;
+        if (hasOwn(key, data2)) {
+          data2[key] = value;
+        } else if (hasOwn(key, props)) {
+          console.log("warn...");
+          return false;
+        }
+        return true;
+      }
+    });
     const componentFn = () => {
       if (!instance.isMounted) {
-        const subTree = render3.call(state);
+        const subTree = render3.call(instance.proxy);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
       } else {
-        const subTree = render3.call(state);
+        const subTree = render3.call(instance.proxy);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
       }

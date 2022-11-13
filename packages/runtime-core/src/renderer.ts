@@ -5,6 +5,7 @@ import { ShapeFlags } from '@vue/shared';
 import { isSameVNode, Text, Fragment } from './vnode';
 import { queueJob } from './scheduler';
 import { initProps } from './componentProps';
+import { createComponentInstance, setupComponent } from './component';
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -19,7 +20,7 @@ export function createRenderer(options) {
     nextSibling: hostNextSibling,
   } = options
 
-  const mountChildren = (children, el) => {
+  const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
         patch(null, children[i], el)
@@ -35,7 +36,7 @@ export function createRenderer(options) {
     }
   }
 
-  const mountElement = (vnode, container, anchor) => {
+  const mountElement = (vnode, container, anchor, parent) => {
     const { type, props, children, shapeFlag } = vnode
     // 创建元素
     const el = (vnode.el = hostCreateElement(type))
@@ -47,7 +48,7 @@ export function createRenderer(options) {
     }
     // 处理子节点
     if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
-      mountChildren(children, el)
+      mountChildren(children, el, anchor, parent)
     } else if (shapeFlag & ShapeFlags.TEXT_CHILDREN) {
       hostSetElementText(el, children)
     }
@@ -234,73 +235,53 @@ export function createRenderer(options) {
     }
   }
 
-  const patchElement = (prevNode, nextNode) => {
-    const el = (nextNode.el = prevNode.el)
-    const oldProps = prevNode.props || {}
-    const newProps = nextNode.props || {}
+  const patchElement = (n1, n2, parent) => {
+    const el = (n2.el = n1.el)
+    const oldProps = n1.props || {}
+    const newProps = n2.props || {}
     patchProps(oldProps, newProps, el)
-    patchChildren(prevNode, nextNode, el)
+    patchChildren(n1, n2, el)
   }
 
-  const processElement = (prevNode, nextNode, container, anchor) => {
-
-    if (prevNode === null) {
+  const processElement = (n1, n2, container, anchor, parent) => {
+    if (n1 === null) {
       // 初次渲染
-      mountElement(nextNode, container, anchor)
+      mountElement(n2, container, anchor, parent)
     } else {
       // diff算法
-      patchElement(prevNode, nextNode)
+      patchElement(n1, n2, parent)
     }
   }
 
   const mountComponent = (vnode, container, anchor) => {
-    // 如何挂载组件？ vnode指的是组件的虚拟节点 subTree render函数返回的虚拟节点
-    const { data = () => ({}), render, props: propsOptions = {} } = vnode.type
-    const state = reactive(data()) // 将数据变成响应式的
-    let instance = {
-      // 组件的实例
-      data: state,
-      isMounted: false,
-      subTree: null,
-      vnode,
-      update: null, // 组件的更新方法 effect.run()
-      props: {},
-      attrs: {},
-      propsOptions,
-      proxy: null
+    // 1.创建实例
+    const instance = (vnode.component = createComponentInstance(vnode))
+    // 2.给实例赋予属性
+    setupComponent(instance)
+    // 3.创建组件的effect
+    setupRenderEffect(instance, container, anchor)
+  }
+
+  const updateProps = (prevProps, nextProps) => {
+    // 样式的diff
+    for (const key in nextProps) {
+      prevProps[key] = nextProps[key]
     }
-    vnode.component = instance // 让虚拟节点知道对应的组件是谁
-    initProps(instance, vnode.props)
-    const publicProperties = {
-      $attrs: (i) => i.attrs,
-      $props: (i) => i.props
-    }
-    // debugger;
-    instance.proxy = new Proxy(instance, {
-      get(target, key) {
-        let { data, props } = target
-        if (hasOwn(key, data)) {
-          return data[key]
-        } else if (hasOwn(key, props)) {
-          return props[key]
-        }
-        let getter = publicProperties[key]
-        if (getter) {
-          return getter(target)
-        }
-      },
-      set(target, key, value) {
-        let { data, props } = target
-        if (hasOwn(key, data)) {
-          data[key] = value
-        } else if (hasOwn(key, props)) {
-          console.log('warn...');
-          return false
-        }
-        return true
+    for (const key in prevProps) {
+      if (!(key in nextProps)) {
+        delete prevProps[key]
       }
-    })
+    }
+  }
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null
+    instance.vnode = next // 用新的虚拟节点 换掉老的虚拟节点
+    // instance.props.a = n2.props.a
+    updateProps(instance.props, next.props)
+  }
+  const setupRenderEffect = (instance, container, anchor) => {
     const componentFn = () => {
+      const { render } = instance
       if (!instance.isMounted) {
         // 稍后组件更新 也会执行此方法
         const subTree = render.call(instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
@@ -308,6 +289,12 @@ export function createRenderer(options) {
         instance.isMounted = true
         instance.subTree = subTree
       } else {
+        // 更新需要拿到最新的属性和插槽 扩展到原来的实例上
+        let { next } = instance
+        if (next) {
+          // 如果有next 说明属性或者插槽更新了
+          updateComponentPreRender(instance, next) // 给属性赋值
+        }
         const subTree = render.call(instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
@@ -321,6 +308,41 @@ export function createRenderer(options) {
     update()
   }
 
+  const hasPropsChanged = (prevProps = {}, nextProps = {}) => {
+    const l1 = Object.keys(prevProps)
+    const l2 = Object.keys(nextProps)
+    if (l1.length !== l2.length) {
+      return true // 前后属性个数不一样要更新
+    }
+    for (let i = 0; i < l1.length; i++) {
+      const key = l2[i]
+      if (nextProps[key] !== prevProps[key]) {
+        return true // 属性有变化
+      }
+    }
+    return false
+  }
+
+  const shouldComponentUpdate = (n1, n2) => {
+    const { props: prevProps, children: prevChildren } = n1
+    const { props: nextProps, children: nextChildren } = n2
+
+    // 对于插槽而言 只要前后有插槽 那么就意味着组件要更新
+    if (prevChildren || nextChildren) return true
+    if (prevProps === nextProps) return false
+    return hasPropsChanged(prevProps, nextProps)
+  }
+
+  const updateComponent = (n1, n2) => {
+    // 复用组件
+    let instance = (n2.component = n1.component)
+    if (shouldComponentUpdate(n1, n2)) {
+      // 比对属性和插槽 看一下是否要更新
+      instance.next = n2 // 我们将新的虚拟节点挂载到实例上
+      instance.update()
+    }
+  }
+
   const processComponent = (n1, n2, container, anchor) => {
     if (n1 == null) {
       // 组件初次渲染
@@ -328,6 +350,7 @@ export function createRenderer(options) {
     } else {
       // 组件更新 指的是组件的属性 更新，插槽更新
       // todo...
+      updateComponent(n1, n2)
     }
   }
 
@@ -350,7 +373,7 @@ export function createRenderer(options) {
     }
   }
 
-  const patch = (prevNode, nextNode, container, anchor = null) => {
+  const patch = (prevNode, nextNode, container, anchor = null, parent = null) => {
     if (prevNode === nextNode) {
       return
     }
@@ -369,7 +392,7 @@ export function createRenderer(options) {
         break
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(prevNode, nextNode, container, anchor)
+          processElement(prevNode, nextNode, container, anchor, parent)
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
           processComponent(prevNode, nextNode, container, anchor)
         }

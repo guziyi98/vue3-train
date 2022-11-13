@@ -58,7 +58,7 @@ var createInvoker = (initialValue) => {
 };
 var patchEvent = (el, key, nextValue) => {
   const invokers = el._vei || (el._vei = {});
-  const name = key.slice(2).toLowercase();
+  const name = key.slice(2).toLowerCase();
   const existingInvoker = invokers[name];
   if (nextValue && existingInvoker) {
     existingInvoker.value = nextValue;
@@ -109,6 +109,9 @@ var patchProp = (el, key, prevValue, nextValue) => {
 // packages/shared/src/index.ts
 function isObject(value) {
   return value !== null && typeof value === "object";
+}
+function isFunction(value) {
+  return typeof value === "function";
 }
 function isString(value) {
   return typeof value === "string";
@@ -264,6 +267,27 @@ function triggerEffects(dep) {
   }
 }
 
+// packages/runtime-core/src/scheduler.ts
+var queue = [];
+var isFlushing = false;
+var resolvePromise = Promise.resolve();
+var queueJob = (job) => {
+  if (!queue.includes(job)) {
+    queue.push(job);
+  }
+  if (!isFlushing) {
+    isFlushing = true;
+    resolvePromise.then(() => {
+      isFlushing = false;
+      let copy = queue.slice(0);
+      queue.length = 0;
+      for (let i = 0; i < copy.length; i++) {
+        copy[i]();
+      }
+    });
+  }
+};
+
 // packages/reactivity/src/baseHandlers.ts
 var mutTableHandlers = {
   get(target, key, receiver) {
@@ -305,27 +329,6 @@ function reactive(target) {
   return proxy;
 }
 
-// packages/runtime-core/src/scheduler.ts
-var queue = [];
-var isFlushing = false;
-var resolvePromise = Promise.resolve();
-var queueJob = (job) => {
-  if (!queue.includes(job)) {
-    queue.push(job);
-  }
-  if (!isFlushing) {
-    isFlushing = true;
-    resolvePromise.then(() => {
-      isFlushing = false;
-      let copy = queue.slice(0);
-      queue.length = 0;
-      for (let i = 0; i < copy.length; i++) {
-        copy[i]();
-      }
-    });
-  }
-};
-
 // packages/runtime-core/src/componentProps.ts
 function initProps(instance, rawProps) {
   const props = {};
@@ -345,6 +348,62 @@ function initProps(instance, rawProps) {
   instance.attrs = attrs;
 }
 
+// packages/runtime-core/src/component.ts
+function createComponentInstance(vnode) {
+  let instance = {
+    data: null,
+    isMounted: false,
+    subTree: null,
+    vnode,
+    update: null,
+    props: {},
+    attrs: {},
+    propsOptions: vnode.type.props || {},
+    proxy: null
+  };
+  return instance;
+}
+var publicProperties = {
+  $attrs: (i) => i.attrs,
+  $props: (i) => i.props
+};
+var PublicInstanceProxyHandlers = {
+  get(target, key) {
+    let { data, props } = target;
+    if (data && hasOwn(key, data)) {
+      return data[key];
+    } else if (hasOwn(key, props)) {
+      return props[key];
+    }
+    let getter = publicProperties[key];
+    if (getter) {
+      return getter(target);
+    }
+  },
+  set(target, key, value) {
+    let { data, props } = target;
+    if (hasOwn(key, data)) {
+      data[key] = value;
+    } else if (hasOwn(key, props)) {
+      console.log("warn...");
+      return false;
+    }
+    return true;
+  }
+};
+function setupComponent(instance) {
+  const { type, props } = instance.vnode;
+  initProps(instance, props);
+  instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers);
+  const data = type.data;
+  if (data) {
+    if (isFunction(data)) {
+      instance.data = reactive(data.call(instance.proxy));
+    }
+  }
+  instance.render = type.render;
+}
+
 // packages/runtime-core/src/renderer.ts
 function createRenderer(options) {
   const {
@@ -359,7 +418,7 @@ function createRenderer(options) {
     parentNode: hostParentNode,
     nextSibling: hostNextSibling
   } = options;
-  const mountChildren = (children, el) => {
+  const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
         patch(null, children[i], el);
@@ -373,7 +432,7 @@ function createRenderer(options) {
       }
     }
   };
-  const mountElement = (vnode, container, anchor) => {
+  const mountElement = (vnode, container, anchor, parent) => {
     const { type, props, children, shapeFlag } = vnode;
     const el = vnode.el = hostCreateElement(type);
     if (props) {
@@ -382,7 +441,7 @@ function createRenderer(options) {
       }
     }
     if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
-      mountChildren(children, el);
+      mountChildren(children, el, anchor, parent);
     } else if (shapeFlag & 8 /* TEXT_CHILDREN */) {
       hostSetElementText(el, children);
     }
@@ -511,71 +570,53 @@ function createRenderer(options) {
       }
     }
   };
-  const patchElement = (prevNode, nextNode) => {
-    const el = nextNode.el = prevNode.el;
-    const oldProps = prevNode.props || {};
-    const newProps = nextNode.props || {};
+  const patchElement = (n1, n2, parent) => {
+    const el = n2.el = n1.el;
+    const oldProps = n1.props || {};
+    const newProps = n2.props || {};
     patchProps(oldProps, newProps, el);
-    patchChildren(prevNode, nextNode, el);
+    patchChildren(n1, n2, el);
   };
-  const processElement = (prevNode, nextNode, container, anchor) => {
-    if (prevNode === null) {
-      mountElement(nextNode, container, anchor);
+  const processElement = (n1, n2, container, anchor, parent) => {
+    if (n1 === null) {
+      mountElement(n2, container, anchor, parent);
     } else {
-      patchElement(prevNode, nextNode);
+      patchElement(n1, n2, parent);
     }
   };
   const mountComponent = (vnode, container, anchor) => {
-    const { data = () => ({}), render: render3, props: propsOptions = {} } = vnode.type;
-    const state = reactive(data());
-    let instance = {
-      data: state,
-      isMounted: false,
-      subTree: null,
-      vnode,
-      update: null,
-      props: {},
-      attrs: {},
-      propsOptions,
-      proxy: null
-    };
-    vnode.component = instance;
-    initProps(instance, vnode.props);
-    const publicProperties = {
-      $attrs: (i) => i.attrs,
-      $props: (i) => i.props
-    };
-    instance.proxy = new Proxy(instance, {
-      get(target, key) {
-        let { data: data2, props } = target;
-        if (hasOwn(key, data2)) {
-          return data2[key];
-        } else if (hasOwn(key, props)) {
-          return props[key];
-        }
-        let getter = publicProperties[key];
-        if (getter) {
-          return getter(target);
-        }
-      },
-      set(target, key, value) {
-        let { data: data2, props } = target;
-        if (hasOwn(key, data2)) {
-          data2[key] = value;
-        } else if (hasOwn(key, props)) {
-          console.log("warn...");
-          return false;
-        }
-        return true;
+    const instance = vnode.component = createComponentInstance(vnode);
+    setupComponent(instance);
+    setupRenderEffect(instance, container, anchor);
+  };
+  const updateProps = (prevProps, nextProps) => {
+    for (const key in nextProps) {
+      prevProps[key] = nextProps[key];
+    }
+    for (const key in prevProps) {
+      if (!(key in nextProps)) {
+        delete prevProps[key];
       }
-    });
+    }
+  };
+  const updateComponentPreRender = (instance, next) => {
+    instance.next = null;
+    instance.vnode = next;
+    updateProps(instance.props, next.props);
+  };
+  const setupRenderEffect = (instance, container, anchor) => {
     const componentFn = () => {
+      const { render: render3 } = instance;
       if (!instance.isMounted) {
         const subTree = render3.call(instance.proxy);
         patch(null, subTree, container, anchor);
         instance.isMounted = true;
         instance.subTree = subTree;
       } else {
+        let { next } = instance;
+        if (next) {
+          updateComponentPreRender(instance, next);
+        }
         const subTree = render3.call(instance.proxy);
         patch(instance.subTree, subTree, container, anchor);
         instance.subTree = subTree;
@@ -587,10 +628,41 @@ function createRenderer(options) {
     const update = instance.update = effect.run.bind(effect);
     update();
   };
+  const hasPropsChanged = (prevProps = {}, nextProps = {}) => {
+    const l1 = Object.keys(prevProps);
+    const l2 = Object.keys(nextProps);
+    if (l1.length !== l2.length) {
+      return true;
+    }
+    for (let i = 0; i < l1.length; i++) {
+      const key = l2[i];
+      if (nextProps[key] !== prevProps[key]) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const shouldComponentUpdate = (n1, n2) => {
+    const { props: prevProps, children: prevChildren } = n1;
+    const { props: nextProps, children: nextChildren } = n2;
+    if (prevChildren || nextChildren)
+      return true;
+    if (prevProps === nextProps)
+      return false;
+    return hasPropsChanged(prevProps, nextProps);
+  };
+  const updateComponent = (n1, n2) => {
+    let instance = n2.component = n1.component;
+    if (shouldComponentUpdate(n1, n2)) {
+      instance.next = n2;
+      instance.update();
+    }
+  };
   const processComponent = (n1, n2, container, anchor) => {
     if (n1 == null) {
       mountComponent(n2, container, anchor);
     } else {
+      updateComponent(n1, n2);
     }
   };
   const processText = (n1, n2, el) => {
@@ -610,7 +682,7 @@ function createRenderer(options) {
       patchKeyedChildren(n1.children, n2.children, el);
     }
   };
-  const patch = (prevNode, nextNode, container, anchor = null) => {
+  const patch = (prevNode, nextNode, container, anchor = null, parent = null) => {
     if (prevNode === nextNode) {
       return;
     }
@@ -628,7 +700,7 @@ function createRenderer(options) {
         break;
       default:
         if (shapeFlag & 1 /* ELEMENT */) {
-          processElement(prevNode, nextNode, container, anchor);
+          processElement(prevNode, nextNode, container, anchor, parent);
         } else if (shapeFlag & 6 /* COMPONENT */) {
           processComponent(prevNode, nextNode, container, anchor);
         }

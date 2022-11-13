@@ -8,9 +8,8 @@ const createInvoker = (initialValue) => {
 // 函数更新成新的函数了 直接更改.value即可
 export const patchEvent = (el, key, nextValue) => {
   const invokers = el._vei || (el._vei = {})
-  const name = key.slice(2).toLowercase()
+  const name = key.slice(2).toLowerCase()
   const existingInvoker = invokers[name]
-
   if (nextValue && existingInvoker) {
     // 更新事件
     existingInvoker.value = nextValue

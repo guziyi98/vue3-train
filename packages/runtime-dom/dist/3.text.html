@@ -10,9 +10,20 @@
   <body>
     <div id="app"></div>
     <script type="module">
-      // import { createRenderer, h } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
-
-      import { h, createRenderer, render } from './runtime-dom.esm.js'
+      // import {
+      //   createRenderer,
+      //   h,
+      //   render,
+      //   Text,
+      //   Fragment,
+      // } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
+      import {
+        h,
+        createRenderer,
+        render,
+        Text,
+        Fragment,
+      } from './runtime-dom.esm.js'
       const style = { color: 'red', background: 'blue' }
       render(
         h('div', [
@@ -28,19 +39,11 @@
       )
 
       setTimeout(() => {
-        render(
-          h('div', [
-            h('li', { key: 'a' }, 'a'),
-            h('li', { key: 'b' }, 'b'),
-            h('li', { key: 'e' }, 'e'),
-            h('li', { key: 'c' }, 'c'),
-            h('li', { key: 'd' }, 'd'),
-            h('li', { key: 'h' }, 'h'),
-            h('li', { key: 'f' }, 'f'),
-            h('li', { key: 'g' }, 'g'),
-          ]),
-          app
-        )
+        render(h(Fragment, [h(Text, 'aaa'), h(Text, 'bbb')]), app)
+
+        setTimeout(() => {
+          render(null, app)
+        }, 1500)
       }, 1000)
     </script>
   </body>

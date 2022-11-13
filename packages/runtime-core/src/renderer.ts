@@ -1,5 +1,5 @@
 import { ShapeFlags } from '@vue/shared';
-import { isSameVNode } from './vnode';
+import { isSameVNode, Text, Fragment } from './vnode';
 export function createRenderer(options) {
   const {
     insert: hostInsert,
@@ -133,61 +133,60 @@ export function createRenderer(options) {
         unmount(c1[i])
         i++
       }
-    }
-
-    // a b c d e   f g
-    // a b e c d h f g
-    let s1 = i // s1 => e1
-    let s2 = i // s2 => e2
-    // i = 2 e1 = 4 e2 = 5
-    // 这里我们要复用老节点？ key vue2中根据老节点创建的索引表 vue3中根据新的key 做了一个映射表
-    const keyToNewIndexMap = new Map()
-    for (let i = s2; i <= e2; i++) {
-      const vnode = c2[i]
-      keyToNewIndexMap.set(vnode.key, i)
-    }
-    const toBePatched = e2 - s2 + 1
-    const newIndexToOldMapIndex = new Array(toBePatched).fill(0) // [0,0,0,0]
-
-
-    // 有了新的映射表后，去老的中查找一下，看一下是否存在，如果存在需要复用
-    for (let i = s1; i <= e1; i++) {
-      const child = c1[i]
-      const newIndex = keyToNewIndexMap.get(child.key) // 通过老的key 来查找对应的新的索引
-      // 如果newIndex有值说明有
-      if (newIndex == undefined) {
-        // 老的里面有 新的没有
-        unmount(child)
-      } else {
-        // 比对两个属性
-        // 如果前后两个能复用，则比较这两个节点
-        newIndexToOldMapIndex[newIndex - s2] = i + 1
-        patch(child, c2[newIndex], el)
-      }
-    }
-    const seq = getSequence(newIndexToOldMapIndex)
-    let j = seq.length - 1
-    // 写到这里 我们已经复用了节点，并且更新了复用节点的属性，差移动操作，和新的里面有老的中没有的操作
-    // 如何知道 新的里面有 老的里面没有 （老的没有映射表）
-    for (let i = toBePatched - 1; i >= 0; i--) {
+    } else {
       // a b c d e   f g
       // a b e c d h f g
-      const nextIndex = s2 + i // 下一个元素的索引
-      const nextChild = c2[nextIndex] // 先拿到的h
-      // 看一下h
-      const anchor = nextIndex + 1 < c2.length ? c2[nextIndex + 1].el : null
-      if (newIndexToOldMapIndex[i] == 0) {
-        // 找到新增的了
-        // 创建元素再插入
-        patch(null, nextChild, el, anchor)
-      } else {
-        // 直接做插入操作即可
-        // 倒序插入
-        if (i !== seq[j]) {
-          hostInsert(nextChild.el, el, anchor) // insert是移动节点
-          // 这个插入操作比较暴力，整个做了一次移动，但是我们需要优化不动的那一项
+      let s1 = i // s1 => e1
+      let s2 = i // s2 => e2
+      // i = 2 e1 = 4 e2 = 5
+      // 这里我们要复用老节点？ key vue2中根据老节点创建的索引表 vue3中根据新的key 做了一个映射表
+      const keyToNewIndexMap = new Map()
+      for (let i = s2; i <= e2; i++) {
+        const vnode = c2[i]
+        keyToNewIndexMap.set(vnode.key, i)
+      }
+      const toBePatched = e2 - s2 + 1
+      const newIndexToOldMapIndex = new Array(toBePatched).fill(0) // [0,0,0,0]
+
+      // 有了新的映射表后，去老的中查找一下，看一下是否存在，如果存在需要复用
+      for (let i = s1; i <= e1; i++) {
+        const child = c1[i]
+        const newIndex = keyToNewIndexMap.get(child.key) // 通过老的key 来查找对应的新的索引
+        // 如果newIndex有值说明有
+        if (newIndex == undefined) {
+          // 老的里面有 新的没有
+          unmount(child)
         } else {
-          j-- // 不做移动跳过节点即可
+          // 比对两个属性
+          // 如果前后两个能复用，则比较这两个节点
+          newIndexToOldMapIndex[newIndex - s2] = i + 1
+          patch(child, c2[newIndex], el)
+        }
+      }
+      const seq = getSequence(newIndexToOldMapIndex)
+      let j = seq.length - 1
+      // 写到这里 我们已经复用了节点，并且更新了复用节点的属性，差移动操作，和新的里面有老的中没有的操作
+      // 如何知道 新的里面有 老的里面没有 （老的没有映射表）
+      for (let i = toBePatched - 1; i >= 0; i--) {
+        // a b c d e   f g
+        // a b e c d h f g
+        const nextIndex = s2 + i // 下一个元素的索引
+        const nextChild = c2[nextIndex] // 先拿到的h
+        // 看一下h
+        const anchor = nextIndex + 1 < c2.length ? c2[nextIndex + 1].el : null
+        if (newIndexToOldMapIndex[i] == 0) {
+          // 找到新增的了
+          // 创建元素再插入
+          patch(null, nextChild, el, anchor)
+        } else {
+          // 直接做插入操作即可
+          // 倒序插入
+          if (i !== seq[j]) {
+            hostInsert(nextChild.el, el, anchor) // insert是移动节点
+            // 这个插入操作比较暴力，整个做了一次移动，但是我们需要优化不动的那一项
+          } else {
+            j-- // 不做移动跳过节点即可
+          }
         }
       }
     }
@@ -249,6 +248,25 @@ export function createRenderer(options) {
     }
   }
 
+  const processText = (n1, n2, el) => {
+    if (n1 == null) {
+      hostInsert((n2.el = hostCreateText(n2.children)), el)
+    } else {
+      let el = (n2.el = n1.el)
+      if (n1.children !== n2.children) {
+        hostSetText(el, n2.children)
+      }
+    }
+  }
+
+  const processFragment = (n1, n2, el) => {
+    if (n1 == null) {
+      mountChildren(n2.children, el)
+    } else {
+      patchKeyedChildren(n1.children, n2.children, el)
+    }
+  }
+
   const patch = (prevNode, nextNode, container, anchor = null) => {
     if (prevNode === nextNode) {
       return
@@ -257,10 +275,28 @@ export function createRenderer(options) {
       unmount(prevNode)
       prevNode = null
     }
-    processElement(prevNode, nextNode, container, anchor)
+    let { shapeFlag, type } = nextNode
+    switch (type) {
+      case Text:
+        // 处理文本
+        processText(prevNode, nextNode, container)
+        break
+      case Fragment:
+        processFragment(prevNode, nextNode, container)
+        break
+      default:
+        if (shapeFlag & ShapeFlags.ELEMENT) {
+          processElement(prevNode, nextNode, container, anchor)
+        }
+    }
   }
 
-  const unmount = (vnode) => hostRemove(vnode.el)
+  const unmount = (vnode) => {
+    if (vnode.type === Fragment) {
+      return unmountChildren(vnode.children)
+    }
+    hostRemove(vnode.el)
+  }
 
   const render = (vnode, container) => {
     // vnode + dom api = 真实dom => 插入到container中

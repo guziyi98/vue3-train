@@ -9,3 +9,4 @@ export const render = (vnode, container) => {
   return createRenderer(renderOptions).render(vnode, container)
 }
 export * from "@vue/runtime-core"
+export * from "@vue/reactivity"

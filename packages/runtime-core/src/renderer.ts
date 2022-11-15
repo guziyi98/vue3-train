@@ -284,7 +284,7 @@ export function createRenderer(options) {
       const { render } = instance
       if (!instance.isMounted) {
         // 稍后组件更新 也会执行此方法
-        const subTree = render.call(instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
+        const subTree = render.call(instance.proxy, instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
         patch(null, subTree, container, anchor)
         instance.isMounted = true
         instance.subTree = subTree
@@ -295,7 +295,7 @@ export function createRenderer(options) {
           // 如果有next 说明属性或者插槽更新了
           updateComponentPreRender(instance, next) // 给属性赋值
         }
-        const subTree = render.call(instance.proxy)
+        const subTree = render.call(instance.proxy, instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
       }

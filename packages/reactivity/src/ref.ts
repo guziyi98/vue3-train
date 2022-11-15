@@ -2,11 +2,15 @@ import { isObject } from '@vue/shared';
 import { trackEffects, activeEffect, triggerEffects } from './effect';
 import { reactive } from './reactive';
 
-export function ref (value) {
+export function ref(value) {
   return new RefImpl(value)
 }
 
-function toReactive (value) {
+export function isRef(value) {
+  return !!(value && value.__v_isRef)
+}
+
+function toReactive(value) {
   return isObject(value) ? reactive(value) : value
 }
 class RefImpl {
@@ -17,7 +21,7 @@ class RefImpl {
     this._value = toReactive(rawValue)
   }
 
-  get value () {
+  get value() {
     // 依赖收集
     if (activeEffect) {
       trackEffects(this.dep || (this.dep = new Set()))
@@ -25,7 +29,7 @@ class RefImpl {
     return this._value
   }
 
-  set value (newValue) {
+  set value(newValue) {
     if (newValue !== this.rawValue) {
       // 更新
       this._value = toReactive(newValue)
@@ -39,23 +43,23 @@ class RefImpl {
 
 class ObjectRefImpl {
   __v_isRef = true
-  constructor (public _object, public _key) {
+  constructor(public _object, public _key) {
 
   }
-  get value () {
+  get value() {
     return this._object[this._key]
   }
 
-  set value (newValue) {
+  set value(newValue) {
     this._object[this._key] = newValue
   }
 }
 
-export function toRef (target, key) {
+export function toRef(target, key) {
   return new ObjectRefImpl(target, key)
 }
 
-export function toRefs (target) {
+export function toRefs(target) {
   let res = {}
   for (const key in target) {
     res[key] = toRef(target, key)
@@ -64,13 +68,13 @@ export function toRefs (target) {
 }
 
 // 需要加个 .value
-export function proxyRefs (objectWithRefs) {
+export function proxyRefs(objectWithRefs) {
   return new Proxy(objectWithRefs, {
-    get (target, key, receiver) {
+    get(target, key, receiver) {
       const v = Reflect.get(target, key, receiver)
-      return v.__v_isRef ? v.value : v
+      return isRef(v) ? v.value : v
     },
-    set (target, key, value, receiver) {
+    set(target, key, value, receiver) {
       const oldValue = target[key]
       if (oldValue.__v_isRef) {
         oldValue.value = value

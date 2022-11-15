@@ -1,4 +1,4 @@
-import { reactive } from '@vue/reactivity'
+import { proxyRefs, reactive } from '@vue/reactivity'
 import { hasOwn, isFunction } from '@vue/shared'
 import { initProps } from './componentProps'
 
@@ -13,7 +13,9 @@ export function createComponentInstance(vnode) {
     props: {},
     attrs: {},
     propsOptions: vnode.type.props || {},
-    proxy: null
+    proxy: null,
+    setupState: null,
+    exposed: {}
     // 组件的生命周期
     // 插槽
     // 组件的事件
@@ -26,11 +28,13 @@ const publicProperties = {
 }
 const PublicInstanceProxyHandlers = {
   get(target, key) {
-    let { data, props } = target
+    let { data, props, setupState } = target
     if (data && hasOwn(key, data)) {
       return data[key]
     } else if (hasOwn(key, props)) {
       return props[key]
+    } else if (setupState && hasOwn(key, setupState)) {
+      return setupState[key]
     }
     let getter = publicProperties[key]
     if (getter) {
@@ -38,12 +42,14 @@ const PublicInstanceProxyHandlers = {
     }
   },
   set(target, key, value) {
-    let { data, props } = target
+    let { data, props, setupState } = target
     if (hasOwn(key, data)) {
       data[key] = value
     } else if (hasOwn(key, props)) {
       console.log('warn...');
       return false
+    } else if (setupState && hasOwn(key, setupState)) {
+      setupState[key] = value
     }
     return true
   }
@@ -57,6 +63,29 @@ export function setupComponent(instance) {
   initProps(instance, props)
   // 创建代理对象
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers)
+  const { setup } = type
+  if (setup) {
+    const setupContext = {
+      attrs: instance.attrs,
+      emit: (event, ...args) => {
+        // myEvent => onMyEvent
+        const eventName = `on${event[0].toUpperCase() + event.slice(1)}`
+        const handler = instance.vnode.props[eventName]
+        handler && handler(...args)
+      },
+      expose(exposed) {
+        instance.exposed = exposed // ref获取组件时拿到的就是exposed属性
+      }
+    }
+    const setupResult = setup(instance.props, setupContext)
+    // setup返回的是render函数
+    if (isFunction(setupResult)) {
+      instance.render = setupResult
+    } else {
+      // 将返回的结果作为了数据集
+      instance.setupState = proxyRefs(setupResult)
+    }
+  }
   const data = type.data
   if (data) {
     // vue2 传递的data
@@ -65,5 +94,7 @@ export function setupComponent(instance) {
       instance.data = reactive(data.call(instance.proxy))
     }
   }
-  instance.render = type.render // 将用户写的render作为实例
+  if (!instance.render) {
+    instance.render = type.render // 将用户写的render作为实例
+  }
 }

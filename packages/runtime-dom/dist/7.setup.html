@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   h,
+      //   render,
+      //   Text,
+      //   Fragment,
+      //   getCurrentInstance,
+      //   ref,
+      //   reactive,
+      //   toRefs,
+      // } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
+      import {
+        h,
+        createRenderer,
+        render,
+        Text,
+        Fragment,
+        ref,
+        reactive,
+        toRefs,
+        // getCurrentInstance,
+      } from './runtime-dom.esm.js'
+
+      const VueComponent = {
+        props: {
+          a: String,
+        },
+        setup(props, ctx) {
+          console.log(ctx)
+          const name = ref('gzy')
+          // const age = ref(24)
+          // return function () {
+          //   return h('div', name.value + age.value)
+          // }
+          const state = reactive({ age: 24 })
+          setTimeout(() => {
+            state.age++
+          }, 1000)
+
+          const expose = expose({
+            a: 1,
+          })
+          // const instance = getCurrentInstance()
+          // console.log(instance)
+          const handleClick = () => {
+            ctx.emit('myEvent')
+          }
+          return {
+            name,
+            ...toRefs(state),
+            handleClick,
+          }
+        },
+        render(proxy) {
+          console.log(proxy)
+          return h(Fragment, [
+            h('div', proxy.name + proxy.age),
+            h('button', { onClick: () => proxy.handleClick() }, '触发事件'),
+          ])
+        },
+      }
+      render(
+        h(
+          VueComponent,
+          {
+            a: 1,
+            b: 2,
+            onMyEvent: () => {
+              alert('HAH')
+            },
+          },
+          { default: () => h('div', 'hello') }
+        ),
+        app
+      )
+    </script>
+  </body>
+</html>

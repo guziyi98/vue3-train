@@ -1,5 +1,5 @@
 import { proxyRefs, reactive } from '@vue/reactivity'
-import { hasOwn, isFunction } from '@vue/shared'
+import { hasOwn, isFunction, ShapeFlags } from '@vue/shared'
 import { initProps } from './componentProps'
 
 export function createComponentInstance(vnode) {
@@ -15,7 +15,8 @@ export function createComponentInstance(vnode) {
     propsOptions: vnode.type.props || {},
     proxy: null,
     setupState: null,
-    exposed: {}
+    exposed: {},
+    slots: {}
     // 组件的生命周期
     // 插槽
     // 组件的事件
@@ -24,7 +25,8 @@ export function createComponentInstance(vnode) {
 }
 const publicProperties = {
   $attrs: (i) => i.attrs,
-  $props: (i) => i.props
+  $props: (i) => i.props,
+  $slots: (i) => i.slots
 }
 const PublicInstanceProxyHandlers = {
   get(target, key) {
@@ -54,13 +56,21 @@ const PublicInstanceProxyHandlers = {
     return true
   }
 }
+
+function initSlots(instance, children) {
+  if (instance.vnode.shapeFlag & ShapeFlags.SLOTS_CHILDREN) {
+    instance.slots = children // 将用户传递的插槽绑定到实例上
+  }
+}
+
 export function setupComponent(instance) {
   // 组件的对象 render(component, {a: 1})
-  const { type, props } = instance.vnode
+  const { type, props, children } = instance.vnode
   // h(组件的虚拟节点) => 用户写的对象 propsOptions, render
   // 组件的虚拟节点 就是渲染组件的时候传递的props
   // 用用户传递的props 和 把他解析成 attrs 和 props放到实例上
   initProps(instance, props)
+  initSlots(instance, children)
   // 创建代理对象
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers)
   const { setup } = type
@@ -75,7 +85,8 @@ export function setupComponent(instance) {
       },
       expose(exposed) {
         instance.exposed = exposed // ref获取组件时拿到的就是exposed属性
-      }
+      },
+      slots: instance.slots
     }
     const setupResult = setup(instance.props, setupContext)
     // setup返回的是render函数

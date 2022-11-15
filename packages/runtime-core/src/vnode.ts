@@ -36,6 +36,8 @@ export function createVNode(type, props = null, children = null) {
     let type = 0
     if (Array.isArray(children)) {
       type = ShapeFlags.ARRAY_CHILDREN
+    } else if (isObject(children)) {
+      type = ShapeFlags.SLOTS_CHILDREN // 孩子是插槽
     } else {
       type = ShapeFlags.TEXT_CHILDREN
     }

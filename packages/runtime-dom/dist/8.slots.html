@@ -30,44 +30,24 @@
         ref,
         reactive,
         toRefs,
-        // getCurrentInstance,
       } from './runtime-dom.esm.js'
 
       const VueComponent = {
         props: {
           a: String,
         },
-        setup(props, ctx) {
-          console.log(ctx)
-          const name = ref('gzy')
-          // const age = ref(24)
-          // return function () {
-          //   return h('div', name.value + age.value)
-          // }
-          const state = reactive({ age: 24 })
-          setTimeout(() => {
-            state.age++
-          }, 1000)
-
-          // const expose = expose({
-          //   a: 1,
-          // })
-          // const instance = getCurrentInstance()
-          // console.log(instance)
-          const handleClick = () => {
-            ctx.emit('myEvent')
-          }
-          return {
-            name,
-            ...toRefs(state),
-            handleClick,
-          }
-        },
-        render(proxy) {
-          console.log(proxy)
+        // setup(props, ctx) {
+        // return function () {
+        //   return h(Fragment, [
+        //     ctx.slots.header({ a: 100 }),
+        //     ctx.slots.footer(),
+        //   ])
+        // }
+        // },
+        render() {
           return h(Fragment, [
-            h('div', proxy.name + proxy.age),
-            h('button', { onClick: () => proxy.handleClick() }, '触发事件'),
+            this.$slots.header({ a: 10 }),
+            this.$slots.footer(),
           ])
         },
       }
@@ -81,7 +61,10 @@
               alert('HAH')
             },
           },
-          { default: () => h('div', 'hello') }
+          {
+            header: ({ a }) => h('div', 'header' + a),
+            footer: () => h('div', 'footer'),
+          }
         ),
         app
       )

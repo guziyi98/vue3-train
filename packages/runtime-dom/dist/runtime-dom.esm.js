@@ -143,6 +143,8 @@ function createVNode(type, props = null, children = null) {
     let type2 = 0;
     if (Array.isArray(children)) {
       type2 = 16 /* ARRAY_CHILDREN */;
+    } else if (isObject(children)) {
+      type2 = 32 /* SLOTS_CHILDREN */;
     } else {
       type2 = 8 /* TEXT_CHILDREN */;
     }
@@ -583,13 +585,15 @@ function createComponentInstance(vnode) {
     propsOptions: vnode.type.props || {},
     proxy: null,
     setupState: null,
-    exposed: {}
+    exposed: {},
+    slots: {}
   };
   return instance;
 }
 var publicProperties = {
   $attrs: (i) => i.attrs,
-  $props: (i) => i.props
+  $props: (i) => i.props,
+  $slots: (i) => i.slots
 };
 var PublicInstanceProxyHandlers = {
   get(target, key) {
@@ -619,9 +623,15 @@ var PublicInstanceProxyHandlers = {
     return true;
   }
 };
+function initSlots(instance, children) {
+  if (instance.vnode.shapeFlag & 32 /* SLOTS_CHILDREN */) {
+    instance.slots = children;
+  }
+}
 function setupComponent(instance) {
-  const { type, props } = instance.vnode;
+  const { type, props, children } = instance.vnode;
   initProps(instance, props);
+  initSlots(instance, children);
   instance.proxy = new Proxy(instance, PublicInstanceProxyHandlers);
   const { setup } = type;
   if (setup) {
@@ -634,7 +644,8 @@ function setupComponent(instance) {
       },
       expose(exposed) {
         instance.exposed = exposed;
-      }
+      },
+      slots: instance.slots
     };
     const setupResult = setup(instance.props, setupContext);
     if (isFunction(setupResult)) {

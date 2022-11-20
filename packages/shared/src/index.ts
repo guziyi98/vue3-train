@@ -15,5 +15,8 @@ export function isString(value) {
 const ownProperty = Object.prototype.hasOwnProperty
 export const hasOwn = (key, value) => ownProperty.call(value, key)
 
+export function invokeArrayFn(fns) {
+  fns.forEach(fn => fn())
+}
 
 export * from './shapeFlags'

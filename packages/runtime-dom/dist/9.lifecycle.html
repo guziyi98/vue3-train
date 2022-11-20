@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script type="module">
+      import {
+        createRenderer,
+        h,
+        render,
+        Text,
+        Fragment,
+        getCurrentInstance,
+        ref,
+        reactive,
+        toRefs,
+        onMounted,
+      } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
+      // import {
+      //   h,
+      //   createRenderer,
+      //   render,
+      //   Text,
+      //   Fragment,
+      //   ref,
+      //   reactive,
+      //   toRefs,
+      // } from './runtime-dom.esm.js'
+
+      // 生命周期
+      // 创建前后 挂载前后 更新前后 卸载前后
+      // options api 不适合抽离公共逻辑
+      const VueComponent = {
+        beforeCreate() {},
+        created() {},
+        beforeMount() {},
+        // mounted() {},
+        beforeUpdate() {},
+        updated() {},
+        beforeDestroy() {},
+        destroyed() {},
+        setup(props) {
+          const instance = getCurrentInstance()
+          console.log(instance)
+          onMounted(() => {
+            console.log('mounted')
+          })
+          return () => {
+            return h('div', 'hello world ')
+          }
+        },
+      }
+      // 这个实现方案是 依赖收集
+      // 1. 在setup没执行之前，把当前的实例放到全局上
+      // 2. 调用setup的时候 内部调用的钩子就可以找到当前的实例， 让实例讲钩子收集起来
+      // 3. setup执行完毕后 讲当前实例还原
+      render(h(VueComponent, {}), app)
+    </script>
+  </body>
+</html>

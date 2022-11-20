@@ -1,4 +1,4 @@
-import { hasOwn } from './../../shared/src/index';
+import { hasOwn, invokeArrayFn } from './../../shared/src/index';
 import { ReactiveEffect } from './../../reactivity/src/effect';
 import { reactive } from '@vue/reactivity';
 import { ShapeFlags } from '@vue/shared';
@@ -278,26 +278,43 @@ export function createRenderer(options) {
     instance.vnode = next // 用新的虚拟节点 换掉老的虚拟节点
     // instance.props.a = n2.props.a
     updateProps(instance.props, next.props)
+    // 插槽更新
+    // 讲新的children合并到插槽中
+    instance.slots = next.children // 替换
+    // Object.assign(instance.slots, next.children) // 覆盖
   }
   const setupRenderEffect = (instance, container, anchor) => {
+    const { render } = instance
     const componentFn = () => {
-      const { render } = instance
+      const { bm, m } = instance
       if (!instance.isMounted) {
+        if (bm) {
+          invokeArrayFn(bm)
+        }
         // 稍后组件更新 也会执行此方法
         const subTree = render.call(instance.proxy, instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
         patch(null, subTree, container, anchor)
         instance.isMounted = true
         instance.subTree = subTree
+        if (m) {
+          invokeArrayFn(m)
+        }
       } else {
         // 更新需要拿到最新的属性和插槽 扩展到原来的实例上
-        let { next } = instance
+        let { next, bu, u } = instance
         if (next) {
           // 如果有next 说明属性或者插槽更新了
           updateComponentPreRender(instance, next) // 给属性赋值
         }
+        if (bu) {
+          invokeArrayFn(bu)
+        }
         const subTree = render.call(instance.proxy, instance.proxy)
         patch(instance.subTree, subTree, container, anchor)
         instance.subTree = subTree
+        if (u) {
+          invokeArrayFn(u)
+        }
       }
     }
     const effect = new ReactiveEffect(componentFn, () => {

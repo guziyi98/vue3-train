@@ -417,8 +417,15 @@ export function createRenderer(options) {
   }
 
   const unmount = (vnode) => {
+    // fragment卸载的时候 ，不是卸载的自己，而是他所有的儿子
+    const { shapeFlag } = vnode
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children)
+    } else if (shapeFlag & ShapeFlags.COMPONENT) {
+      // 组件如何卸载
+      // 组件渲染的是谁? subTree
+      debugger;
+      return unmount(vnode.component.subTree)
     }
     hostRemove(vnode.el)
   }

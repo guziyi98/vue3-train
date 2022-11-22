@@ -18,12 +18,13 @@ export function createRenderer(options) {
     setElementText: hostSetElementText,
     parentNode: hostParentNode,
     nextSibling: hostNextSibling,
+    querySelector: hostQuerySelector
   } = options
 
   const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
-        patch(null, children[i], el)
+        patch(null, children[i], el, anchor)
       }
     }
   }
@@ -390,28 +391,37 @@ export function createRenderer(options) {
     }
   }
 
-  const patch = (prevNode, nextNode, container, anchor = null, parent = null) => {
-    if (prevNode === nextNode) {
+  const patch = (n1, n2, container, anchor = null, parent = null) => {
+    if (n1 === n2) {
       return
     }
-    if (prevNode && !isSameVNode(prevNode, nextNode)) {
-      unmount(prevNode)
-      prevNode = null
+    if (n1 && !isSameVNode(n1, n2)) {
+      unmount(n1)
+      n1 = null
     }
-    let { shapeFlag, type } = nextNode
+    let { shapeFlag, type } = n2
     switch (type) {
       case Text:
         // 处理文本
-        processText(prevNode, nextNode, container)
+        processText(n1, n2, container)
         break
       case Fragment:
-        processFragment(prevNode, nextNode, container)
+        processFragment(n1, n2, container)
         break
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(prevNode, nextNode, container, anchor, parent)
+          processElement(n1, n2, container, anchor, parent)
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          processComponent(prevNode, nextNode, container, anchor)
+          processComponent(n1, n2, container, anchor)
+        } else if (shapeFlag & ShapeFlags.TELEPORT) {
+          type.process(n1, n2, container, anchor, {
+            mountChildren,
+            patchChildren,
+            query: hostQuerySelector,
+            move(vnode, container, anchor) {
+              hostInsert(vnode.component ? vnode.component.subTree.el : vnode.el, container, anchor)
+            }
+          })
         }
     }
   }

@@ -122,6 +122,28 @@ function invokeArrayFn(fns) {
   fns.forEach((fn) => fn());
 }
 
+// packages/runtime-core/src/teleport.ts
+var TeleportImpl = {
+  __isTeleport: true,
+  process(n1, n2, container, anchor, operators) {
+    const { mountChildren, patchChildren, move, hostQuerySelector, query } = operators;
+    if (!n1) {
+      const target = n2.target = query(n2.props.to);
+      if (target) {
+        mountChildren(n2.children, target, anchor);
+      }
+    } else {
+      patchChildren(n1, n2, n1.target);
+      n2.target = n1.target;
+      if (n1.props.to !== n2.props.to) {
+        const nextNode = n2.target = query(n2.props.to);
+        n2.children.forEach((child) => move(child, nextNode, anchor));
+      }
+    }
+  }
+};
+var isTeleport = (type) => !!type.__isTeleport;
+
 // packages/runtime-core/src/vnode.ts
 var Text = Symbol("text");
 var Fragment = Symbol("fragment");
@@ -132,7 +154,7 @@ function isSameVNode(n1, n2) {
   return n1.type === n2.type && n1.key === n2.key;
 }
 function createVNode(type, props = null, children = null) {
-  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
+  const shapeFlag = isString(type) ? 1 /* ELEMENT */ : isTeleport(type) ? 64 /* TELEPORT */ : isObject(type) ? 6 /* COMPONENT */ : 0;
   const vnode = {
     __v_isVnode: true,
     type,
@@ -689,12 +711,13 @@ function createRenderer(options) {
     setText: hostSetText,
     setElementText: hostSetElementText,
     parentNode: hostParentNode,
-    nextSibling: hostNextSibling
+    nextSibling: hostNextSibling,
+    querySelector: hostQuerySelector
   } = options;
   const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
-        patch(null, children[i], el);
+        patch(null, children[i], el, anchor);
       }
     }
   };
@@ -969,27 +992,36 @@ function createRenderer(options) {
       patchKeyedChildren(n1.children, n2.children, el);
     }
   };
-  const patch = (prevNode, nextNode, container, anchor = null, parent = null) => {
-    if (prevNode === nextNode) {
+  const patch = (n1, n2, container, anchor = null, parent = null) => {
+    if (n1 === n2) {
       return;
     }
-    if (prevNode && !isSameVNode(prevNode, nextNode)) {
-      unmount(prevNode);
-      prevNode = null;
+    if (n1 && !isSameVNode(n1, n2)) {
+      unmount(n1);
+      n1 = null;
     }
-    let { shapeFlag, type } = nextNode;
+    let { shapeFlag, type } = n2;
     switch (type) {
       case Text:
-        processText(prevNode, nextNode, container);
+        processText(n1, n2, container);
         break;
       case Fragment:
-        processFragment(prevNode, nextNode, container);
+        processFragment(n1, n2, container);
         break;
       default:
         if (shapeFlag & 1 /* ELEMENT */) {
-          processElement(prevNode, nextNode, container, anchor, parent);
+          processElement(n1, n2, container, anchor, parent);
         } else if (shapeFlag & 6 /* COMPONENT */) {
-          processComponent(prevNode, nextNode, container, anchor);
+          processComponent(n1, n2, container, anchor);
+        } else if (shapeFlag & 64 /* TELEPORT */) {
+          type.process(n1, n2, container, anchor, {
+            mountChildren,
+            patchChildren,
+            query: hostQuerySelector,
+            move(vnode, container2, anchor2) {
+              hostInsert(vnode.component ? vnode.component.subTree.el : vnode.el, container2, anchor2);
+            }
+          });
         }
     }
   };
@@ -1155,6 +1187,7 @@ export {
   LifecycleHooks,
   ReactiveEffect,
   ReactiveFlags,
+  TeleportImpl as Teleport,
   Text,
   activeEffect,
   activeEffectScope,

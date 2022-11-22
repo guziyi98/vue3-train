@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div id="app" style="width: 100px; height: 100px; overflow: hidden;"></div>
+    <div id="root"></div>
+    <div id="home"></div>
+    <script type="module">
+      // import {
+      //   createRenderer,
+      //   h,
+      //   getCurrentInstance,
+      //   render,
+      //   onMounted,
+      //   defineAsyncComponent,
+      //   Text,
+      //   Fragment,
+      //   Teleport,
+      // } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js'
+      import {
+        h,
+        createRenderer,
+        render,
+        getCurrentInstance,
+        onMounted,
+        defineAsyncComponent,
+        Text,
+        Fragment,
+        Teleport,
+      } from './runtime-dom.esm.js'
+
+      // const VueComponent = {
+      //   render() {
+      //     return h(Fragment, [
+      //       h('div', 'hello world'),
+      //       h(
+      //         Teleport,
+      //         {
+      //           to: '#root',
+      //         },
+      //         [h('div', 'teleport')]
+      //       ),
+      //     ])
+      //   },
+      // }
+
+      // 为什么我需要将一个组件渲染到其他节点上
+      // dialog就要放到外面呢
+      // render(h(VueComponent), app)
+
+      render(
+        h(
+          Teleport,
+          {
+            to: '#root',
+          },
+          [h('div', 'teleport')]
+        ),
+        app
+      )
+      setTimeout(() => {
+        render(
+          h(
+            Teleport,
+            {
+              to: '#home',
+            },
+            [h('div', 'teleport2')]
+          ),
+          app
+        )
+      }, 2000)
+    </script>
+  </body>
+</html>

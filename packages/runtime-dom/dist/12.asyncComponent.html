@@ -57,8 +57,6 @@
           render: () => h(Text, 'loading'),
         },
         onError(err, retry) {
-          console.log(err)
-          console.log(retry)
           retry()
         },
       })

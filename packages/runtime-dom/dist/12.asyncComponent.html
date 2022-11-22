@@ -33,12 +33,15 @@
       // 富文本编辑器
       // 类似于图片懒加载 我们可以先渲染一个空组件，等组件内容加载完毕后，再渲染真实的组件
       const a = './component.js'
+      // console.log(undefined > null)
+      // console.log(undefined < null)
+      // console.log(undefined === null)
       const VueComponent = defineAsyncComponent({
         // return import(a)
         loader: () =>
           new Promise((resolve, reject) => {
             setTimeout(() => {
-              resolve({
+              reject({
                 render() {
                   return h(Text, 'hello world2')
                 },
@@ -48,6 +51,15 @@
         timeout: 2000,
         errorComponent: {
           render: () => h(Text, '组件加载超时'),
+        },
+        delay: 200,
+        loadingComponent: {
+          render: () => h(Text, 'loading'),
+        },
+        onError(err, retry) {
+          console.log(err)
+          console.log(retry)
+          retry()
         },
       })
 

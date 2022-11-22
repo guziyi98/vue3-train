@@ -998,7 +998,6 @@ function createRenderer(options) {
     if (vnode.type === Fragment) {
       return unmountChildren(vnode.children);
     } else if (shapeFlag & 6 /* COMPONENT */) {
-      debugger;
       return unmount(vnode.component.subTree);
     }
     hostRemove(vnode.el);
@@ -1091,29 +1090,54 @@ function defineAsyncComponent(options) {
     options = { loader: options };
   }
   let Component = null;
-  let timer = null;
+  let timerError = null;
+  let timerLoading = null;
   return {
     setup() {
-      let { loader } = options;
+      let { loader, timeout, errorComponent, delay, loadingComponent, onError } = options;
       let loaded = ref(false);
       let error = ref(false);
+      let loading = ref(false);
       console.log(loader);
-      loader().then((res) => {
+      const load = () => {
+        return loader().catch((err) => {
+          if (onError) {
+            return new Promise((res, rej) => {
+              const retry = () => res(load());
+              onError(err, retry);
+            });
+          } else {
+            throw err;
+          }
+        });
+      };
+      if (delay) {
+        timerLoading = setTimeout(() => {
+          loading.value = true;
+        }, delay);
+      }
+      load().then((res) => {
         Component = res;
         loaded.value = true;
-        clearTimeout(timer);
-      }).catch((err) => error.value = err);
-      if (options.timeout) {
-        timer = setTimeout(() => {
+        if (timerError) {
+          clearTimeout(timerError);
+        }
+      }).catch((err) => error.value = err).finally(() => {
+        loading.value = false;
+        clearTimeout(timerLoading);
+      });
+      if (timeout) {
+        timerError = setTimeout(() => {
           error.value = true;
-        }, options.timeout);
+        }, timeout);
       }
       return () => {
-        console.log(loaded.value);
         if (loaded.value) {
           return h(Component);
-        } else if (error.value && options.errorComponent) {
-          return h(options.errorComponent);
+        } else if (error.value && errorComponent) {
+          return h(errorComponent);
+        } else if (loading.value && loadingComponent) {
+          return h(loadingComponent);
         }
         return h(Fragment, []);
       };

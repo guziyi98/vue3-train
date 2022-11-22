@@ -24,7 +24,7 @@ export function createRenderer(options) {
   const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
-        patch(null, children[i], el, anchor)
+        patch(null, children[i], el, anchor, parent)
       }
     }
   }
@@ -254,9 +254,9 @@ export function createRenderer(options) {
     }
   }
 
-  const mountComponent = (vnode, container, anchor) => {
+  const mountComponent = (vnode, container, anchor, parent) => {
     // 1.创建实例
-    const instance = (vnode.component = createComponentInstance(vnode))
+    const instance = (vnode.component = createComponentInstance(vnode, parent))
     // 2.给实例赋予属性
     setupComponent(instance)
     // 3.创建组件的effect
@@ -294,7 +294,7 @@ export function createRenderer(options) {
         }
         // 稍后组件更新 也会执行此方法
         const subTree = render.call(instance.proxy, instance.proxy) // 这里会做一来收集，数据变化会再次调用effect
-        patch(null, subTree, container, anchor)
+        patch(null, subTree, container, anchor, instance) // instance就是父组件的实例
         instance.isMounted = true
         instance.subTree = subTree
         if (m) {
@@ -311,7 +311,7 @@ export function createRenderer(options) {
           invokeArrayFn(bu)
         }
         const subTree = render.call(instance.proxy, instance.proxy)
-        patch(instance.subTree, subTree, container, anchor)
+        patch(instance.subTree, subTree, container, anchor, instance)
         instance.subTree = subTree
         if (u) {
           invokeArrayFn(u)
@@ -361,10 +361,10 @@ export function createRenderer(options) {
     }
   }
 
-  const processComponent = (n1, n2, container, anchor) => {
+  const processComponent = (n1, n2, container, anchor = null, parent = null) => {
     if (n1 == null) {
       // 组件初次渲染
-      mountComponent(n2, container, anchor)
+      mountComponent(n2, container, anchor, parent)
     } else {
       // 组件更新 指的是组件的属性 更新，插槽更新
       // todo...
@@ -383,16 +383,16 @@ export function createRenderer(options) {
     }
   }
 
-  const processFragment = (n1, n2, el) => {
+  const processFragment = (n1, n2, el, parent) => {
     if (n1 == null) {
-      mountChildren(n2.children, el)
+      mountChildren(n2.children, el, null, parent)
     } else {
       patchKeyedChildren(n1.children, n2.children, el)
     }
   }
 
   const patch = (n1, n2, container, anchor = null, parent = null) => {
-    if (n1 === n2) {
+    if (n1 == n2) {
       return
     }
     if (n1 && !isSameVNode(n1, n2)) {
@@ -406,13 +406,13 @@ export function createRenderer(options) {
         processText(n1, n2, container)
         break
       case Fragment:
-        processFragment(n1, n2, container)
+        processFragment(n1, n2, container, parent)
         break
       default:
         if (shapeFlag & ShapeFlags.ELEMENT) {
           processElement(n1, n2, container, anchor, parent)
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
-          processComponent(n1, n2, container, anchor)
+          processComponent(n1, n2, container, anchor, parent)
         } else if (shapeFlag & ShapeFlags.TELEPORT) {
           type.process(n1, n2, container, anchor, {
             mountChildren,

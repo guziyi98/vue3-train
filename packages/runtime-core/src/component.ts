@@ -13,7 +13,7 @@ export function setCurrentInstance(instance) {
 export function getCurrentInstance() {
   return currentInstance
 }
-export function createComponentInstance(vnode) {
+export function createComponentInstance(vnode, parent) {
   let instance = {
     // 组件的实例
     data: null,
@@ -27,7 +27,9 @@ export function createComponentInstance(vnode) {
     proxy: null,
     setupState: null,
     exposed: {},
-    slots: {}
+    slots: {},
+    parent, // 父组件的实例
+    provides: parent ? parent.provides : Object.create(null)
     // 组件的生命周期
     // 插槽
     // 组件的事件

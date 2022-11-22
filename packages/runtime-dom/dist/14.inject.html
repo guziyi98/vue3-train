@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <div id="app"></div>
+
+    <script type="module">
+      // import { toRef,provide,Teleport, inject,defineAsyncComponent, createRenderer, h, render, Text, Fragment, ref, reactive, getCurrentInstance, onMounted } from '/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-browser.js';
+      import {
+        provide,
+        toRef,
+        inject,
+        Teleport,
+        defineAsyncComponent,
+        h,
+        render,
+        Text,
+        Fragment,
+        ref,
+        reactive,
+        toRefs,
+        getCurrentInstance,
+        onMounted,
+      } from './runtime-dom.esm.js'
+
+      // 组件通信的方式 在vue3中 关系：父子、兄弟通信、跨级通信
+      // 通过props传递来进行通信
+      // 事件绑定的方式 ctx.emit
+      // 可以通过创建一个reactive对象来进行通信 Vue.observerable
+      // 自己编写发布订阅通信 vue2 中 new Vue产生一个eventBus 可以借助库来实现mitt
+      // attr 可以进行属性的传递 slot 也可以进行通信   exposed 可以暴露组件的数据（通过ref来获取实例）
+
+      // 兄弟通信 可以考虑通过共同父级来通信
+      // <el-form model="data"> <el-row> <el-col> <el-form-item> <el-input v-model="username">
+
+      // 父 -》 儿子 -》 孙子
+
+      // vue2中provide 是 一层层向上找  component.parent.parent
+      // vue3中是只找父级
+      // provide 和 inject 适合编写插件，不适合用在业务代码中  （数据来源不明确）
+
+      // vue 是递归渲染的
+
+      const GrandSon = {
+        // inject -> name
+        setup() {
+          const name = inject('name')
+          const age = inject('age', 30)
+          const instance = getCurrentInstance()
+          console.log(instance)
+          return function () {
+            return h('div', {}, h(Text, name.value + age))
+          }
+        },
+      }
+      const Son = {
+        // son => {provide:name}
+        setup() {
+          const state = reactive({ name: 'zf' })
+          //provide("name", toRef(state, 'name'));
+          return function () {
+            return h(GrandSon)
+          }
+        },
+      }
+
+      const App = {
+        // provide -> name 方法就是将数据 绑定了当前组件的自己身上
+        setup() {
+          const state = reactive({ name: 'jw' })
+          provide('name', toRef(state, 'name'))
+          provide('age', 13)
+          setTimeout(() => {
+            // state.name = 'zf'
+          }, 1000)
+
+          return () => {
+            return h(Son)
+          }
+        },
+      }
+
+      render(h(App), app)
+    </script>
+  </body>
+</html>

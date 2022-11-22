@@ -605,7 +605,7 @@ function setCurrentInstance(instance) {
 function getCurrentInstance() {
   return currentInstance;
 }
-function createComponentInstance(vnode) {
+function createComponentInstance(vnode, parent) {
   let instance = {
     data: null,
     isMounted: false,
@@ -618,7 +618,9 @@ function createComponentInstance(vnode) {
     proxy: null,
     setupState: null,
     exposed: {},
-    slots: {}
+    slots: {},
+    parent,
+    provides: parent ? parent.provides : /* @__PURE__ */ Object.create(null)
   };
   return instance;
 }
@@ -717,7 +719,7 @@ function createRenderer(options) {
   const mountChildren = (children, el, anchor = null, parent = null) => {
     if (children) {
       for (let i = 0; i < children.length; i++) {
-        patch(null, children[i], el, anchor);
+        patch(null, children[i], el, anchor, parent);
       }
     }
   };
@@ -880,8 +882,8 @@ function createRenderer(options) {
       patchElement(n1, n2, parent);
     }
   };
-  const mountComponent = (vnode, container, anchor) => {
-    const instance = vnode.component = createComponentInstance(vnode);
+  const mountComponent = (vnode, container, anchor, parent) => {
+    const instance = vnode.component = createComponentInstance(vnode, parent);
     setupComponent(instance);
     setupRenderEffect(instance, container, anchor);
   };
@@ -910,7 +912,7 @@ function createRenderer(options) {
           invokeArrayFn(bm);
         }
         const subTree = render3.call(instance.proxy, instance.proxy);
-        patch(null, subTree, container, anchor);
+        patch(null, subTree, container, anchor, instance);
         instance.isMounted = true;
         instance.subTree = subTree;
         if (m) {
@@ -925,7 +927,7 @@ function createRenderer(options) {
           invokeArrayFn(bu);
         }
         const subTree = render3.call(instance.proxy, instance.proxy);
-        patch(instance.subTree, subTree, container, anchor);
+        patch(instance.subTree, subTree, container, anchor, instance);
         instance.subTree = subTree;
         if (u) {
           invokeArrayFn(u);
@@ -968,9 +970,9 @@ function createRenderer(options) {
       instance.update();
     }
   };
-  const processComponent = (n1, n2, container, anchor) => {
+  const processComponent = (n1, n2, container, anchor = null, parent = null) => {
     if (n1 == null) {
-      mountComponent(n2, container, anchor);
+      mountComponent(n2, container, anchor, parent);
     } else {
       updateComponent(n1, n2);
     }
@@ -985,15 +987,15 @@ function createRenderer(options) {
       }
     }
   };
-  const processFragment = (n1, n2, el) => {
+  const processFragment = (n1, n2, el, parent) => {
     if (n1 == null) {
-      mountChildren(n2.children, el);
+      mountChildren(n2.children, el, null, parent);
     } else {
       patchKeyedChildren(n1.children, n2.children, el);
     }
   };
   const patch = (n1, n2, container, anchor = null, parent = null) => {
-    if (n1 === n2) {
+    if (n1 == n2) {
       return;
     }
     if (n1 && !isSameVNode(n1, n2)) {
@@ -1006,13 +1008,13 @@ function createRenderer(options) {
         processText(n1, n2, container);
         break;
       case Fragment:
-        processFragment(n1, n2, container);
+        processFragment(n1, n2, container, parent);
         break;
       default:
         if (shapeFlag & 1 /* ELEMENT */) {
           processElement(n1, n2, container, anchor, parent);
         } else if (shapeFlag & 6 /* COMPONENT */) {
-          processComponent(n1, n2, container, anchor);
+          processComponent(n1, n2, container, anchor, parent);
         } else if (shapeFlag & 64 /* TELEPORT */) {
           type.process(n1, n2, container, anchor, {
             mountChildren,
@@ -1177,6 +1179,31 @@ function defineAsyncComponent(options) {
   };
 }
 
+// packages/runtime-core/src/apiInject.ts
+function provide(key, value) {
+  if (!currentInstance)
+    return;
+  let { provides } = currentInstance;
+  const parentProvides = currentInstance.parent && currentInstance.parent.provides;
+  if (provides === parentProvides) {
+    provides = currentInstance.provides = Object.create(provides);
+  }
+  provides[key] = value;
+  console.log(currentInstance.provides);
+  return provides;
+}
+function inject(key, value) {
+  var _a;
+  if (!currentInstance)
+    return;
+  const provides = (_a = currentInstance) == null ? void 0 : _a.parent.provides;
+  if (provides && key in provides) {
+    return provides[key];
+  } else if (value) {
+    return value;
+  }
+}
+
 // packages/runtime-dom/src/index.ts
 var renderOptions = Object.assign(nodeOps, { patchProp });
 var render = (vnode, container) => {
@@ -1202,6 +1229,7 @@ export {
   effectScope,
   getCurrentInstance,
   h,
+  inject,
   isReactive,
   isRef,
   isSameVNode,
@@ -1210,6 +1238,7 @@ export {
   onBeforeUpdate,
   onMounted,
   onUpdated,
+  provide,
   proxyRefs,
   reactive,
   recordEffectScope,
